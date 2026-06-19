@@ -15,9 +15,9 @@
 **A self-evolving capability layer for AI coding agents.** Feed your agent one
 zero-dependency Python file and it gains:
 
-- 🔍 a **code-audit reflex** — a 200+ pattern security/quality scan it can run on any code
-- 🧠 **cross-session memory** — it stops repeating the same mistakes between runs
-- 🌐 an **opt-in "gene" network** — discover and absorb capabilities other Progenitor agents have already built
+- 🔍 a **code-audit reflex** — an AST security scan (a dangerous-call denylist + layered integrity/lineage checks)
+- 🧠 **cross-session state** — persistent context on disk, so it carries forward instead of starting cold
+- 🌐 an **opt-in "gene" network** — discover peers and fetch/verify pre-packaged capability modules ("genes") other agents have published
 
 > ⚗️ **Experimental research project.** It's deliberately provocative — *"a digital
 > primordial virus"* — so you should know exactly what it does before you run it.
@@ -47,15 +47,18 @@ zero-dependency Python file and it gains:
 
 ## ⚡ What It Does
 
-Progenitor implants a **self-evolving engine** into any AI coding agent. Once ingested, the agent gains:
+Progenitor implants a self-bootstrapping engine into any AI coding agent. Once ingested, the agent gains:
 
-| Capability | What You Get |
-|------------|-------------|
-| 🔍 **Code Audit** | 200+ pattern detection, L1→L5 security scan |
-| 🧠 **Semantic Memory** | Cross-session learning, never repeat the same mistake |
-| 📈 **Self-Evolution** | Automatic phase mutation (mutation→adaptation→evolution) |
-| 🌐 **P2P Gene Network** | Discover & absorb capabilities from other Progenitor agents |
-| 🍄 **Autonomous Spores** | One consent → forever auto-share your innovations |
+| Capability | What You Get | Maturity |
+|------------|--------------|----------|
+| 🔍 **Code Audit** | AST dangerous-call denylist + layered audit (integrity · lineage · GPG signature) | ✅ working |
+| 🧠 **Persistent State** | Cross-session state on disk (counters, logs, lineage) — carries context forward | ✅ working |
+| 🌐 **Gene Network** | Discover peers (UDP/LAN) + fetch & SHA-256-verify pre-packaged capability genes | ✅ working |
+| 🍄 **Autonomous Spores** | One consent → auto-share via file / UDP / IPFS | ✅ working |
+| 📈 **Lifecycle Phases** | Usage-tracked phase labels (mutation→adaptation→evolution) | ⚠️ label-only, no code generation |
+| 🤖 **Absorb-from-knowledge** | Turn raw text/docs into a runnable capability | 🚧 not implemented (needs an LLM bridge) |
+
+> **Honest maturity note.** The security screening, on-disk state, and peer/spore *transport* are real and tested. "Self-evolution" today is a phase **label** driven by a usage counter — it does not rewrite or generate code. Turning arbitrary knowledge into executable capability — the most ambitious promise — is **not implemented**; only fetching and running a pre-packaged `.pgn` gene works.
 
 ---
 
@@ -78,11 +81,13 @@ Honest answer, not marketing — it asks you to pipe a thing called a "virus" in
   network calls** to fetch genes from GitHub / IPFS gateways. A small **background
   thread wakes about once an hour** to self-checkpoint ("pulse").
 - **Gene execution is screened, then isolated for stability — not hard-sandboxed.**
-  Incoming genes pass a 5-layer check (SHA-256 · lineage · GPG signature ·
-  dangerous-pattern denylist) and run in a **separate process with memory/time limits**
-  (`TelomereGuard`). ⚠️ That subprocess still runs with **your** privileges — it is
-  crash/runaway isolation, **not** a security jail. The real protection is the
-  pre-screening, so only enable gene-sharing from sources you trust.
+  Incoming genes pass an integrity / lineage / GPG-signature check plus an AST
+  dangerous-call denylist (hardened against the common `eval` / `getattr` /
+  `__subclasses__` escape tricks), then run in a **separate process with memory/time
+  limits** (`TelomereGuard`). ⚠️ Be clear-eyed: that subprocess still runs with **your**
+  privileges, and a denylist is a **speed bump, not a security boundary** — a determined
+  gene could still find a gap. Treat screening as defense-in-depth, only enable
+  gene-sharing from sources you trust, and **run untrusted genes in a throwaway VM**.
 - **Peer-to-peer is opt-in and off by default.** LAN discovery and "spore" sharing
   require a one-time consent; nothing is broadcast or shared until you grant it.
 - **If you're cautious, run it in a throwaway VM or container** — sound advice for any

@@ -84,6 +84,17 @@ _LYSOSOME_BLACKLIST = {
     "importlib.import_module", "importlib.__import__",
 }
 
+# [Hardening] Sandbox-escape gadgets the AST denylist must also catch — dangerous dunder
+# attribute access (used to walk from a literal to type/builtins, e.g.
+# ().__class__.__base__.__subclasses__()) and the dynamic-attribute builtins that
+# re-introduce denied calls by name (getattr(os,'sys'+'tem')).
+_DANGEROUS_DUNDERS = {
+    "__class__", "__subclasses__", "__bases__", "__base__", "__mro__",
+    "__globals__", "__builtins__", "__code__", "__closure__",
+    "__subclasshook__", "__getattribute__", "__import__", "__dict__",
+}
+_DYNAMIC_ATTR_BUILTINS = {"getattr", "setattr", "delattr", "vars", "globals", "locals"}
+
 def _decode_genesis_vow():
     """
     解码创世誓言缓冲区。
@@ -761,8 +772,17 @@ class Crucible:
                 lysosome_report["scanned_nodes"] += 1
                 if isinstance(node, ast.Call):
                     func_path = self._resolve_call_path(node)
-                    if func_path in self._dynamic_blacklist:
+                    if func_path in self._dynamic_blacklist or func_path in _DYNAMIC_ATTR_BUILTINS:
                         lysosome_report["blocked_calls"].append({"call": func_path, "lineno": node.lineno})
+                # [Hardening] dunder-attribute escape gadgets, e.g. ().__class__.__subclasses__()
+                elif isinstance(node, ast.Attribute) and node.attr in _DANGEROUS_DUNDERS:
+                    lysosome_report["blocked_calls"].append({"call": f"<attr {node.attr}>", "lineno": getattr(node, "lineno", 0)})
+                # [Hardening] __builtins__[...] subscript re-introduces denied builtins
+                elif isinstance(node, ast.Subscript):
+                    _b = node.value
+                    _bn = _b.id if isinstance(_b, ast.Name) else (_b.attr if isinstance(_b, ast.Attribute) else "")
+                    if _bn == "__builtins__":
+                        lysosome_report["blocked_calls"].append({"call": "<subscript __builtins__>", "lineno": getattr(node, "lineno", 0)})
         except SyntaxError:
             return {"passed": False, "risk": "HIGH", "reason": "代码语法错误——溶酶体拒绝摄取", "lysosome": lysosome_report}
         if lysosome_report["blocked_calls"]:
@@ -2401,7 +2421,24 @@ class Phagocyte:
 
         # ── [Phase C] 衔尾蛇沙盒 + LLM 桥接试错 ──
         print("\U0001f525 [Phase C: 衔尾蛇沙盒] 正在执行大模型代码翻译，并进入沙盒试错...")
-        translated_python_code = self._llm_bridge_translate_stub(raw_data)
+        if not self._llm_bridge_available():
+            # [Honesty] text/knowledge -> executable-code translation needs an LLM bridge
+            # that is NOT implemented here (the stub returns canned self-passing code).
+            # Report honestly instead of faking "Simulated Execution" success. The working
+            # way to acquire a capability is to fetch a pre-packaged .pgn gene
+            # (phagocytize_from_akashic / phagocytize_gene -> ingest).
+            return {
+                "status": "not_implemented",
+                "phase": "C.llm_bridge",
+                "reason": (
+                    "Capability absorption from raw text/knowledge requires an LLM bridge "
+                    "that is not implemented in this build. Fetch a pre-packaged .pgn gene "
+                    "via phagocytize_from_akashic()/phagocytize_gene() -> ingest() instead."
+                ),
+                "lineage": lineagelog,
+            }
+
+        translated_python_code = self._llm_bridge(raw_data)
 
         lysosome_audit = self.crucible._layer4_lysosome(translated_python_code)
         if not lysosome_audit["passed"]:
@@ -2479,6 +2516,16 @@ class Phagocyte:
             "autophagy": prune_report,
             "lineage": lineagelog
         }
+
+    def _llm_bridge_available(self) -> bool:
+        """Whether a REAL LLM bridge (text -> executable code) is wired up.
+
+        False in this build: _llm_bridge_translate_stub is a placeholder that emits
+        self-passing stub code. A host may set self._llm_bridge to a real callable to
+        enable text->code absorption; until then phagocytize_and_evolve reports
+        not_implemented instead of faking success.
+        """
+        return callable(getattr(self, "_llm_bridge", None))
 
     def _llm_bridge_translate_stub(self, data: str) -> str:
         """
@@ -4407,9 +4454,10 @@ def _verify_digital_signature(filepath: str, is_internal: bool = True) -> bool:
         print(
             f"⚠️ [真理审判] GPG 验证异常——\n"
             f"   签名验证出错: {e}\n"
-            f"   当前签名模式: {SIGNATURE_MODE}，跳过验证。"
+            f"   当前签名模式: {SIGNATURE_MODE}。"
+            f"   {'判定不通过 (fail-closed)' if signature_fail_closed else '跳过验证 (fail-open, 可选模式)'}。"
         )
-        return True
+        return not signature_fail_closed
 
 
 def _determine_rejection_reason(filepath: str) -> str:
