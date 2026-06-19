@@ -30,3 +30,8 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.bak
+
+# Dev tooling artifacts (devkit absorbed 2026-06)
+_test_data/
+.runtime/
+reports/
