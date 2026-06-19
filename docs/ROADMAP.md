@@ -30,8 +30,9 @@ package-manager-plus-sandbox for AI-agent skills.
    (`LYSOSOME_CAPACITY` / `uuid` undefined).
 2. 🚧 Decide the in-process exec story: move untrusted gene execution under a real OS
    sandbox, or keep it out-of-process and document the denylist as a speed bump (F001).
-3. 🚧 Point the "security" tests at **real product code** — import and exercise `Crucible`
-   and `gatekeeper.py` instead of re-implementations (F007).
+3. ⚠️ Point the "security" tests at **real product code** (F007): ✅ `test_crucible_security`
+   now hits the real `engine.Crucible`, `test_gatekeeper` imports the real `gatekeeper.py`;
+   🚧 `test_gene_lifecycle` + `test_spore_propagation` still re-implement / assert constants.
 4. 🚧 Sign the registry index, so F005's hash check can't be subverted by a tampered index.
 
 **P1 — make the headline real or drop it**

