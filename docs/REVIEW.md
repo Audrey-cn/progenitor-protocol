@@ -37,13 +37,14 @@ Verified by reading + reproduction. Status reflects work done in this review pas
 | ID | Severity | Finding | Status |
 |---|---|---|---|
 | (prior) | high | `crucible_audit` NameError (missing `import re`); never scanned gene code | ✅ fixed |
-| F001 | critical | AST denylist bypassable (`getattr`/`__subclasses__`/`__builtins__[...]`); in-process restricted-builtins is not a boundary | ⚠️ denylist hardened + tests; in-process exec remains defense-in-depth only |
+| F001 | critical | AST denylist bypassable (`getattr`/`__subclasses__`/`__builtins__[...]`); in-process restricted-builtins is not a boundary | ✅ denylist hardened + untrusted exec refused unless `PROGENITOR_ALLOW_GENE_EXEC=1` (+tests); real OS sandbox still future |
 | F002 | high | GPG verify failed **open** on exception even in strict mode (`engine.py:4406`) | ✅ fixed (fail-closed) + test |
 | F003 | high | "Absorb from knowledge" faked success via a stub | ✅ honest `not_implemented` + README corrected |
 | F004 | medium | No response size limit on network fetches (DoS) | ✅ fixed (8 MB cap in transport + land + index reads) |
 | F005 | medium | Hash verified **after** landing and often skipped (`expected_sha256=None`) | ✅ fixed (verify sha256 == CID before landing) |
 | F006 | medium | Unauthenticated remote index written to cwd controls the "expected" hash | ✅ partial (writes to runtime dir now; index still unsigned — P2) |
-| F007 | medium | ~half of tests assert on re-implementations, not product code | ✅ partial (crucible + gatekeeper now hit real code; gene_lifecycle/spore remain) |
+| F007 | medium | ~half of tests assert on re-implementations, not product code | ✅ done (crucible, gatekeeper, gene-lifecycle, spore all exercise real code) |
+| (new) | high | Module-level helper functions crashed on every call — stdlib modules imported only locally | ✅ fixed (8 missing module-level imports + undefined `LYSOSOME_CAPACITY`) |
 | F008 | low | `getattr`-by-name tool dispatch can reach private methods | ⏳ open |
 | F009 | low | `TelomereGuard` enforces no memory cap on non-Unix | ⏳ open |
 | — | low | `audit_gene_ast` misses dotted import aliases (`import os.path`) | ⏳ open (secondary scanner) |
@@ -72,14 +73,20 @@ three different meanings of "L1–L5", and README links to a non-existent `CHANG
 - **Remote audit now scans code:** `_crucible_remote` (the peer/IPFS download path) was
   lineage-only and never ran the lysosome; it now scans for denylisted calls and accepts the
   real `# life_id:` header format.
-- **Two more latent crashers fixed in the gene-landing path:** `LYSOSOME_CAPACITY` was
-  referenced but never defined, and `uuid`/`time` were not imported at module level — so
-  `_local_write_before_ingest` / `_autophagy` `NameError`'d on *every* download (same class
-  as the earlier `import re` bug; the landing path was simply never exercised).
-- **F007 (partial): security tests rewritten onto real code.** `test_crucible_security.py`
-  now exercises the real `engine.Crucible` (L1/L2/L4 — that class had zero coverage before);
-  `test_gatekeeper.py` now imports and calls the real `gatekeeper.py` validators (it was
-  never imported). ~16 fake/trivial re-implementation tests were removed — the suite count
-  dropped (102→86) but the coverage is now genuine. (`test_gene_lifecycle`, `test_spore_propagation` still to do.)
+- **F007 (done): all four security/lifecycle test files now exercise real code.**
+  `test_crucible_security` → real `engine.Crucible` (L1/L2/L4; that class had zero coverage);
+  `test_gatekeeper` → real `gatekeeper.py` validators (was never imported);
+  `test_gene_lifecycle` → real `gatekeeper.audit_gene` pipeline; `test_spore_propagation` →
+  real `engine.SporeDaemon`. ~16 fake/trivial re-implementation tests removed.
+- **F001 (gate): untrusted gene execution is refused by default.** `_sandbox_worker` returns
+  `exec_disabled` unless `PROGENITOR_ALLOW_GENE_EXEC=1`; the in-process denylist is documented
+  as a pre-filter, not a boundary. A real OS sandbox remains future work.
+- **Systemic latent-crash bug class fixed.** The engine's module-level helper functions
+  relied on stdlib modules imported only *locally inside methods*, so they `NameError`'d on
+  *every* call. Found + fixed **8** missing module-level imports — `re`, `uuid`, `time`,
+  `shutil`, `socket`, `subprocess`, `datetime`, `urllib` (plus the undefined `LYSOSOME_CAPACITY`).
+  This means the advertised spore-drop, content-landing, autophagy, and index-sync paths were
+  **never actually runnable** — they crashed on first use, undetected because untested. The
+  F007 real-code tests surfaced them one by one.
 - README/README_CN: real audit description, maturity column, corrected safety wording.
-- Seed (`.pgn`) rebuilt as needed; **protocol 64 / registry 22 tests green (all real).**
+- Seed (`.pgn`) rebuilt as needed; **protocol 63 / registry 21 tests green (all real).**

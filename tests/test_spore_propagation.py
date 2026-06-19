@@ -1,108 +1,56 @@
-import pytest
+"""Spore tests against the REAL engine.SporeDaemon.
+
+Previously this file asserted on a hardcoded CHANNELS dict and tautologies. It now drives
+the real SporeDaemon: consent gating, channel detection, deny logic, and the file-spore drop.
+"""
+import sys
 from pathlib import Path
-from conftest import create_valid_gene, save_temp_gene, clean_test_data, TEST_DATA_DIR
+
+REPO_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_DIR / "hatchery"))
+
+import engine
 
 
-class TestSporeChannels:
-    CHANNELS = {
-        "Ch.A": "kubo_ipfs",
-        "Ch.B": "local_gateway",
-        "Ch.C": "udp_beacon",
-        "Ch.D": "file_spore"
-    }
-
-    def test_four_channels_exist(self):
-        assert len(self.CHANNELS) == 4
-        assert "Ch.A" in self.CHANNELS
-        assert "Ch.B" in self.CHANNELS
-        assert "Ch.C" in self.CHANNELS
-        assert "Ch.D" in self.CHANNELS
-
-    def test_channel_priority_order(self):
-        order = ["Ch.A", "Ch.B", "Ch.C", "Ch.D"]
-        assert order[0] == "Ch.A"
-        assert order[-1] == "Ch.D"
-
-    def test_fallback_mechanism(self):
-        fallback_sequence = ["Ch.A", "Ch.B", "Ch.C", "Ch.D"]
-        for i, ch in enumerate(fallback_sequence):
-            if ch == "Ch.A":
-                fallback = fallback_sequence[min(i + 1, len(fallback_sequence) - 1)]
-                assert fallback == "Ch.B"
+def test_consent_required_by_default():
+    sd = engine.SporeDaemon()
+    result = sd.auto_disseminate("/tmp/whatever", "demo-gene")
+    assert result["status"] == "consent_required"
 
 
-class TestSporeFilePropagation:
-    def test_spore_content_integrity(self):
-        content = create_valid_gene("propagation-test")
-        filepath = save_temp_gene(content, "integrity_test.gene")
-
-        reloaded = filepath.read_text()
-        assert reloaded == content
-
-        filepath.unlink()
-
-    def test_spore_size_limit(self):
-        max_size = 1024 * 1024
-        content = "x" * 500
-        assert len(content.encode()) <= max_size
+def test_detect_channels_includes_file_and_udp():
+    sd = engine.SporeDaemon()
+    sd._detect_channels()
+    names = [c[0] for c in sd._available_channels]
+    assert "file_spore" in names
+    assert "udp_beacon" in names
 
 
-class TestSporeBroadcast:
-    def test_gene_broadcast_payload(self):
-        gene_content = create_valid_gene("broadcast-test")
-        payload = {
-            "gene_name": "broadcast-test",
-            "gene_content": gene_content,
-            "channel": "Ch.B",
-            "timestamp": "2026-05-11T00:00:00"
-        }
-        assert payload["gene_name"] == "broadcast-test"
-        assert len(payload["gene_content"]) > 0
-
-    def test_multiple_genes_broadcast(self):
-        broadcasts = []
-        for i in range(3):
-            content = create_valid_gene(f"broadcast-{i}")
-            broadcasts.append({
-                "gene_name": f"broadcast-{i}",
-                "content": content,
-                "channel": f"Ch.{chr(65 + i)}"
-            })
-
-        assert len(broadcasts) == 3
-        assert broadcasts[0]["channel"] == "Ch.A"
-        assert broadcasts[-1]["channel"] == "Ch.C"
+def test_deny_consent_increments_count():
+    sd = engine.SporeDaemon()
+    first = sd.deny_consent()
+    assert first["status"] == "consent_denied" and first["deny_count"] == 1
+    assert sd.deny_consent()["deny_count"] == 2
 
 
-class TestSporeReminder:
-    def test_reminder_conditions(self):
-        max_reminders = 5
-        innovation_threshold = 3
-
-        reminders = 0
-        innovations = 0
-
-        for _ in range(10):
-            innovations += 1
-            if innovations >= innovation_threshold and reminders < max_reminders:
-                reminders += 1
-                innovations = 0
-
-        assert reminders <= max_reminders
-
-    def test_reminder_after_innovation(self):
-        innovations = [1, 1, 1, 0, 0]
-        reminders = 0
-        innovation_count = 0
-
-        for inc in innovations:
-            innovation_count += inc
-            if innovation_count >= 3:
-                reminders += 1
-                innovation_count = 0
-
-        assert reminders == 1
+def test_no_reminder_without_denial():
+    sd = engine.SporeDaemon()
+    # neither granted nor denied → no nagging
+    assert sd.on_innovation(5) is None
 
 
-def teardown_module():
-    clean_test_data()
+def test_grant_consent_enables(monkeypatch):
+    sd = engine.SporeDaemon()
+    monkeypatch.setattr(sd._beacon, "start", lambda: None)  # don't bind a real UDP socket
+    result = sd.grant_consent()
+    assert result["status"] == "consent_granted"
+    assert sd._consent_given is True
+
+
+def test_file_spore_drop_writes_file(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    src = tmp_path / "gene_src"
+    src.write_text("# life_id: PGN@L1-G1-X\ndef main():\n    return 1\n", encoding="utf-8")
+    spore_path = engine._drop_spore_file(str(src), "demo-gene")
+    assert spore_path is not None
+    assert Path(spore_path).exists()

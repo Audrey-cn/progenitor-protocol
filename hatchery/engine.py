@@ -5,6 +5,9 @@ import json
 import multiprocessing
 import os
 import re
+import shutil
+import socket
+import subprocess
 import sys
 import tempfile
 import threading
@@ -12,8 +15,10 @@ import time
 import time as _time
 import uuid
 import zlib
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from urllib import error, request
 
 try:
     from . import stargate_transport
@@ -188,6 +193,10 @@ RUNTIME_DIR = AKASHIC_RUNTIME_DIR
 LYSOSOME_DIR = AKASHIC_LYSOSOME_DIR
 # [bugfix] referenced by _autophagy() but never defined → every gene landing NameError'd.
 LYSOSOME_CAPACITY = int(os.environ.get("PROGENITOR_LYSOSOME_CAPACITY", "256"))
+# [F001] The in-process gene sandbox (restricted __builtins__ + AST denylist) is a
+# PRE-FILTER, not a security boundary — a determined gene can still escape an in-process
+# exec. So untrusted gene execution is refused unless the host explicitly opts in.
+_GENE_EXEC_ALLOWED = os.environ.get("PROGENITOR_ALLOW_GENE_EXEC", "0") == "1"
 LOCAL_GENE_INDEX_PATH = AKASHIC_LOCAL_GENE_INDEX_PATH
 REMOTE_GENE_INDEX_URL = AKASHIC_REMOTE_GENE_INDEX_URL
 KUBO_API_URL = AKASHIC_KUBO_API_URL
@@ -679,6 +688,16 @@ def _sandbox_worker(queue, filepath, function_name, parameters, max_mem_mb, time
     [Phagocytosis Sandbox Worker] 隔离舱子进程工作函数。
     在完全独立的子进程中执行外部基因代码，受 TelomereGuard 保护。
     """
+    if not _GENE_EXEC_ALLOWED:
+        queue.put({
+            "status": "exec_disabled",
+            "error": (
+                "untrusted gene execution is disabled by default — the in-process denylist "
+                "is a pre-filter, not a security boundary, and this subprocess runs with your "
+                "privileges. Set PROGENITOR_ALLOW_GENE_EXEC=1 to opt in (ideally inside a VM/container)."
+            ),
+        })
+        return
     try:
         import sys
         sys.path.insert(0, str(Path(filepath).parent))

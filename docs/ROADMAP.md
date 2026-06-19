@@ -28,11 +28,12 @@ package-manager-plus-sandbox for AI-agent skills.
    verified before landing** (F005), index moved out of **cwd** to the runtime dir (F006).
    Also made the remote audit scan code, and fixed two latent land-path crashers
    (`LYSOSOME_CAPACITY` / `uuid` undefined).
-2. 🚧 Decide the in-process exec story: move untrusted gene execution under a real OS
-   sandbox, or keep it out-of-process and document the denylist as a speed bump (F001).
-3. ⚠️ Point the "security" tests at **real product code** (F007): ✅ `test_crucible_security`
-   now hits the real `engine.Crucible`, `test_gatekeeper` imports the real `gatekeeper.py`;
-   🚧 `test_gene_lifecycle` + `test_spore_propagation` still re-implement / assert constants.
+2. ⚠️ In-process exec story (F001): ✅ untrusted exec now refused by default (opt-in via
+   `PROGENITOR_ALLOW_GENE_EXEC=1`), documented as a pre-filter; 🚧 a real OS sandbox
+   (seccomp/landlock/namespaces) or fully out-of-process execution is still future work.
+3. ✅ Security tests now exercise **real product code** (F007): `test_crucible_security` →
+   `engine.Crucible`; `test_gatekeeper` + `test_gene_lifecycle` → real `gatekeeper.py`;
+   `test_spore_propagation` → `engine.SporeDaemon`.
 4. 🚧 Sign the registry index, so F005's hash check can't be subverted by a tampered index.
 
 **P1 — make the headline real or drop it**
@@ -52,7 +53,10 @@ package-manager-plus-sandbox for AI-agent skills.
 ## Done in the 2026-06-19 pass
 
 Consolidated 3 repos → 2; fixed registry content-addressing; added LICENSE/topics; rewrote
-READMEs for clarity + honest maturity; fixed `import re` crash, `crucible_audit` code-scan,
-denylist bypass (F001), signature fail-open (F002), and stub honesty (F003). P0 pass: fetch
+READMEs for clarity + honest maturity. Security: `crucible_audit` code-scan + denylist
+hardening (F001) + opt-in exec gate, signature fail-closed (F002), stub honesty (F003), fetch
 size caps (F004), verify-before-land (F005), index out of cwd (F006), remote-audit code scan,
-and two latent land-path crashers (`LYSOSOME_CAPACITY`/`uuid`). Protocol 72 / registry 30 green.
+and all security tests rewritten onto real code (F007). Fixed a systemic latent-crash class:
+**8 missing module-level imports** (`re`/`uuid`/`time`/`shutil`/`socket`/`subprocess`/`datetime`/
+`urllib`) + undefined `LYSOSOME_CAPACITY` that crashed the spore/landing/sync paths on first
+use. Protocol 63 / registry 21 tests green (all real).
