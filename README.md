@@ -32,6 +32,7 @@ zero-dependency Python file and it gains:
 - [⚡ What It Does](#-what-it-does)
 - [🤔 Why This Exists](#-why-this-exists)
 - [🔒 Is It Safe?](#-is-it-safe)
+- [🎬 See It in Action](#-see-it-in-action)
 - [🚀 Quick Start](#-quick-start)
 - [🧬 Architecture](#-architecture)
 - [🔒 Defense in Depth](#-defense-in-depth)
@@ -86,6 +87,35 @@ Honest answer, not marketing — it asks you to pipe a thing called a "virus" in
   require a one-time consent; nothing is broadcast or shared until you grant it.
 - **If you're cautious, run it in a throwaway VM or container** — sound advice for any
   self-modifying agent tooling.
+
+---
+
+## 🎬 See it in action
+
+Reproducible — run it yourself (standard library only, no network):
+
+```bash
+python3 examples/demo.py
+```
+
+The lysosome gate rejects a hostile gene **before** it executes, and the seed
+self-audits on activation:
+
+```text
+== Lysosome gate: dangerous-pattern scan (no side effects) ==
+  benign gene                 -> ALLOWED
+  os.system('rm -rf /') gene  -> BLOCKED — 溶酶体隔离阻断: ['os.system']
+
+== Seed activation: ingest -> catalyze (writes ~/.progenitor/) ==
+  state: alive
+    L1 形体完整: PASS
+    L2 血脉纯正: PASS
+    L3 罗塞塔石碑: PASS
+    L4 溶酶体隔离: PASS
+```
+
+The denylist (`os.system`, `eval`, `exec`, `subprocess`, …) is enforced *before* any
+gene runs — that's the pre-screening referenced in [Is it safe?](#-is-it-safe).
 
 ---
 
