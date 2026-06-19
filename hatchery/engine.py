@@ -4052,8 +4052,26 @@ def crucible_audit(filepath: str, expected_sha256: str = None) -> bool:
         )
         return False
 
+    # [Hardening] Dangerous-pattern scan (lysosome) for ALL genes — internal or external.
+    # The lineage/hash/signature checks below do NOT inspect code; this applies the same
+    # denylist the engine enforces at gene-execution time (os.system, eval, exec,
+    # subprocess, shutil.rmtree, …), so a hostile gene is rejected here too, regardless
+    # of its lineage tier.
+    try:
+        _gene_source = Path(filepath).read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return False
+    _code_body = _gene_source.split("\n---\n", 1)[1] if "\n---\n" in _gene_source else _gene_source
+    _lysosome_verdict = Crucible()._layer4_lysosome(_code_body)
+    if not _lysosome_verdict["passed"]:
+        print(f"⛔ [真理审判·溶酶体] 高危调用拦截，基因就地净化：{_lysosome_verdict.get('reason')}")
+        return False
+
     for lineage in ALLOWED_LINEAGES:
-        lineage_pattern = re.compile(rf'life_id:\s*"({re.escape(lineage)}[^"]+)"')
+        # Match both quoted YAML (life_id: "PGN@…") and the real comment-style
+        # header (# life_id: PGN@…). Previously only the quoted form matched, so every
+        # real gene fell through to the lenient external path.
+        lineage_pattern = re.compile(rf'life_id:\s*"?({re.escape(lineage)}[^"\s]+)')
         lineage_match = lineage_pattern.search(header or "")
         if lineage_match:
             lineage_matched = lineage_match.group(0)
