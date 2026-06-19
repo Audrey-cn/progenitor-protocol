@@ -40,9 +40,9 @@ Verified by reading + reproduction. Status reflects work done in this review pas
 | F001 | critical | AST denylist bypassable (`getattr`/`__subclasses__`/`__builtins__[...]`); in-process restricted-builtins is not a boundary | ⚠️ denylist hardened + tests; in-process exec remains defense-in-depth only |
 | F002 | high | GPG verify failed **open** on exception even in strict mode (`engine.py:4406`) | ✅ fixed (fail-closed) + test |
 | F003 | high | "Absorb from knowledge" faked success via a stub | ✅ honest `not_implemented` + README corrected |
-| F004 | medium | No response size limit on network fetches (DoS) | ⏳ open |
-| F005 | medium | Hash verified **after** landing and often skipped (`expected_sha256=None`) | ⏳ open |
-| F006 | medium | Unauthenticated remote index written to cwd controls the "expected" hash | ⏳ open |
+| F004 | medium | No response size limit on network fetches (DoS) | ✅ fixed (8 MB cap in transport + land + index reads) |
+| F005 | medium | Hash verified **after** landing and often skipped (`expected_sha256=None`) | ✅ fixed (verify sha256 == CID before landing) |
+| F006 | medium | Unauthenticated remote index written to cwd controls the "expected" hash | ✅ partial (writes to runtime dir now; index still unsigned — P2) |
 | F007 | medium | ~half of tests assert on re-implementations, not product code | ⏳ open |
 | F008 | low | `getattr`-by-name tool dispatch can reach private methods | ⏳ open |
 | F009 | low | `TelomereGuard` enforces no memory cap on non-Unix | ⏳ open |
@@ -64,8 +64,17 @@ Doc/code drift to clean up: incoherent version numbers (2.18 / 2.0 / 1.0.0 / 2.2
 three different meanings of "L1–L5", and README links to a non-existent `CHANGELOG.md` and
 `../AGENTS.md`.
 
-## 6. Fixed in this review pass
+## 6. Fixed across this review's passes
 
-- F001 denylist hardening (+ 3 regression tests), F002 fail-closed (+ 2 tests), F003 honesty.
-- README/README_CN: real audit description, a maturity column, corrected safety wording.
-- Seed (`.pgn`) rebuilt; protocol 67 / registry 30 tests green.
+- F001 denylist hardening (+3 tests), F002 fail-closed (+2 tests), F003 honesty.
+- F004 fetch size caps, F005 content-address verified before landing, F006 index moved out
+  of cwd into the runtime dir (+5 tests).
+- **Remote audit now scans code:** `_crucible_remote` (the peer/IPFS download path) was
+  lineage-only and never ran the lysosome; it now scans for denylisted calls and accepts the
+  real `# life_id:` header format.
+- **Two more latent crashers fixed in the gene-landing path:** `LYSOSOME_CAPACITY` was
+  referenced but never defined, and `uuid`/`time` were not imported at module level — so
+  `_local_write_before_ingest` / `_autophagy` `NameError`'d on *every* download (same class
+  as the earlier `import re` bug; the landing path was simply never exercised).
+- README/README_CN: real audit description, maturity column, corrected safety wording.
+- Seed (`.pgn`) rebuilt each pass; **protocol 72 / registry 30 tests green.**

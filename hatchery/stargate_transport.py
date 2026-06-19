@@ -1,8 +1,20 @@
 from __future__ import annotations
 
+import os
 import time
 from typing import Optional
 from urllib import error, request
+
+# [F004] Hard cap on any fetched body to prevent OOM / disk-fill from a hostile gateway.
+MAX_GENE_BYTES = int(os.environ.get("PROGENITOR_MAX_GENE_BYTES", str(8 * 1024 * 1024)))
+
+
+def _read_capped(response, limit: int = MAX_GENE_BYTES) -> bytes:
+    """Read at most ``limit`` bytes; raise if the body exceeds it (DoS guard)."""
+    data = response.read(limit + 1)
+    if len(data) > limit:
+        raise RuntimeError(f"Stargate response exceeds {limit} bytes — refusing (possible DoS)")
+    return data
 
 
 def build_gateway_url(content_id: str, gateway_base: str) -> str:
@@ -30,8 +42,8 @@ def pull_via_kubo(content_id: str, *, timeout_sec: int) -> Optional[bytes]:
             method="POST",
         )
         with request.urlopen(req, timeout=timeout_sec) as response:
-            return response.read()
-    except (error.HTTPError, error.URLError, TimeoutError):
+            return _read_capped(response)
+    except (error.HTTPError, error.URLError, TimeoutError, RuntimeError):
         return None
 
 
@@ -61,7 +73,7 @@ def pull_via_gateway_array(
                     headers={"User-Agent": "G012-akashic-receptor/1.2"},
                 )
                 with request.urlopen(req, timeout=timeout_sec) as response:
-                    return response.read()
+                    return _read_capped(response)
             except error.URLError as exc:
                 all_errors.append(f"[gateway {gate_idx}] URLError: {exc}")
             except TimeoutError as exc:

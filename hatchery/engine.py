@@ -8,7 +8,9 @@ import re
 import sys
 import tempfile
 import threading
+import time
 import time as _time
+import uuid
 import zlib
 from pathlib import Path
 from typing import Optional
@@ -184,6 +186,8 @@ FETCH_TIMEOUT_SEC = AKASHIC_FETCH_TIMEOUT_SEC
 RETRY_POLICY = AKASHIC_RETRY_POLICY
 RUNTIME_DIR = AKASHIC_RUNTIME_DIR
 LYSOSOME_DIR = AKASHIC_LYSOSOME_DIR
+# [bugfix] referenced by _autophagy() but never defined → every gene landing NameError'd.
+LYSOSOME_CAPACITY = int(os.environ.get("PROGENITOR_LYSOSOME_CAPACITY", "256"))
 LOCAL_GENE_INDEX_PATH = AKASHIC_LOCAL_GENE_INDEX_PATH
 REMOTE_GENE_INDEX_URL = AKASHIC_REMOTE_GENE_INDEX_URL
 KUBO_API_URL = AKASHIC_KUBO_API_URL
@@ -241,6 +245,18 @@ def compass_update_index(index_path: str, updates: dict):
         json.dump(existing, f, indent=2, ensure_ascii=False)
 
 
+MAX_GENE_BYTES = int(os.environ.get("PROGENITOR_MAX_GENE_BYTES", str(8 * 1024 * 1024)))
+MAX_INDEX_BYTES = int(os.environ.get("PROGENITOR_MAX_INDEX_BYTES", str(16 * 1024 * 1024)))
+
+
+def _read_capped(response, limit):
+    """[F004] Read at most ``limit`` bytes; raise if the body exceeds it (DoS guard)."""
+    data = response.read(limit + 1)
+    if len(data) > limit:
+        raise RuntimeError(f"response exceeds {limit} bytes — refusing (possible DoS)")
+    return data
+
+
 def compass_sync_index(local_path: str, remote_url: str) -> bool:
     """
     从远程同步索引文件。
@@ -248,7 +264,7 @@ def compass_sync_index(local_path: str, remote_url: str) -> bool:
     try:
         req = request.Request(remote_url)
         with request.urlopen(req, timeout=15) as response:
-            content = response.read().decode('utf-8')
+            content = _read_capped(response, MAX_INDEX_BYTES).decode('utf-8')
         os.makedirs(os.path.dirname(local_path), exist_ok=True)
         with open(local_path, 'w', encoding='utf-8') as f:
             f.write(content)
@@ -1845,7 +1861,10 @@ class Phagocyte:
         if raw_data is None:
             return {"state": "failed", "reason": f"所有通道均无法拉取基因 [{cid}]"}
 
-        local_path = self._lysosome_land(raw_data, cid)
+        try:
+            local_path = self._lysosome_land(raw_data, cid)
+        except RuntimeError as e:
+            return {"state": "dead", "reason": f"基因 [{cid}] 落地校验失败: {e}"}
         if not self._crucible_remote(local_path):
             try:
                 os.remove(local_path)
@@ -1892,7 +1911,10 @@ class Phagocyte:
         if raw_gene is None:
             raise RuntimeError(f"所有通道均无法拉取基因 [{cid}]")
 
-        filepath = self._lysosome_land(raw_gene, cid)
+        try:
+            filepath = self._lysosome_land(raw_gene, cid)
+        except RuntimeError as e:
+            raise RuntimeError(f"基因 [{cid}] 落地校验失败: {e}")
         if not self._crucible_remote(filepath, expected_sha256=expected_hash):
             try:
                 os.remove(filepath)
@@ -2082,7 +2104,7 @@ class Phagocyte:
         except (UnicodeDecodeError, OSError):
             return False
         for lineage in self.ALLOWED_LINEAGES:
-            if re.search(rf'life_id:\s*"{re.escape(lineage)}[^"]*"', header):
+            if re.search(rf'life_id:\s*"?{re.escape(lineage)}', header):
                 break
         else:
             print(f"[G010] [L2 血脉] 异端——无被认可的血脉前缀")
@@ -2094,7 +2116,16 @@ class Phagocyte:
             else:
                 print(f"[G010] [L3 契约] 伪史——无被认可的创造者印记")
                 return False
-        print("[G010] [真理审判] 血脉纯正，契约完整。")
+        # [Hardening] code scan — downloaded genes must also clear the lysosome denylist
+        try:
+            _src = Path(filepath).read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            return False
+        _code = _src.split("\n---\n", 1)[1] if "\n---\n" in _src else _src
+        if not Crucible()._layer4_lysosome(_code)["passed"]:
+            print("[G010] [溶酶体] 高危调用——远端基因就地净化")
+            return False
+        print("[G010] [真理审判] 血脉纯正，契约完整，代码洁净。")
         return True
 
     def _compass_resolve(self, capability_name, force_refresh=False):
@@ -2111,7 +2142,7 @@ class Phagocyte:
         """
         index_path = os.environ.get(
             "AKASHIC_INDEX_PATH",
-            os.path.join(os.getcwd(), ".akashic_index.json")
+            os.path.join(RUNTIME_DIR, ".akashic_index.json")  # [F006] runtime dir, not cwd
         )
         registry_index_url = os.environ.get(
             "AKASHIC_REGISTRY_INDEX_URL",
@@ -2133,9 +2164,10 @@ class Phagocyte:
                     headers={"User-Agent": "G010-compass/2.4"}
                 )
                 with urllib.request.urlopen(req, timeout=self._FETCH_TIMEOUT) as resp:
-                    ri = json.loads(resp.read().decode("utf-8"))
+                    ri = json.loads(_read_capped(resp, MAX_INDEX_BYTES).decode("utf-8"))
                 if isinstance(ri, dict):
                     index.update(ri)
+                    Path(index_path).parent.mkdir(parents=True, exist_ok=True)
                     Path(index_path).write_text(json.dumps(index, ensure_ascii=False, indent=2))
                     print(f"   [G010] 罗盘已原子级进化")
             except urllib.error.HTTPError as exc:
@@ -4042,7 +4074,21 @@ def _local_write_before_ingest(raw_data: bytes, cid: str) -> str:
 
 
 def _land_content_before_ingest(raw_data: bytes, content_id: str) -> str:
-    """Persist remote gene bytes before audit using content identity or transport hint."""
+    """Persist remote gene bytes before audit, after verifying content-addressing.
+
+    [F004] Reject oversize payloads (DoS guard). [F005] When content_id is a SHA-256
+    (the registry's content address), verify sha256(raw_data) == content_id BEFORE the
+    bytes touch disk or the auditor — content-addressing must hold first.
+    """
+    if len(raw_data) > MAX_GENE_BYTES:
+        raise RuntimeError(f"gene payload exceeds {MAX_GENE_BYTES} bytes — refusing (possible DoS)")
+    _cid = (content_id or "").strip().lower()
+    if len(_cid) == 64 and all(c in "0123456789abcdef" for c in _cid):
+        actual = hashlib.sha256(raw_data).hexdigest()
+        if actual != _cid:
+            raise RuntimeError(
+                f"content-address mismatch: expected {_cid[:16]}… got {actual[:16]}… — refusing to land"
+            )
     return _local_write_before_ingest(raw_data, content_id)
 
 

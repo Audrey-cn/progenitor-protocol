@@ -24,13 +24,15 @@ package-manager-plus-sandbox for AI-agent skills.
 ## Next (prioritized)
 
 **P0 — credibility & safety (before any promotion)**
-1. 🚧 Close remaining security mediums: response **size caps** on all fetches (F004);
-   **verify hash before landing/parsing**, require `expected_sha256` from the index (F005);
-   stop writing the index to **cwd** and treat the unsigned index as untrusted (F006).
+1. ✅ Closed the network/validation mediums: fetch **size caps** (F004), **content-address
+   verified before landing** (F005), index moved out of **cwd** to the runtime dir (F006).
+   Also made the remote audit scan code, and fixed two latent land-path crashers
+   (`LYSOSOME_CAPACITY` / `uuid` undefined).
 2. 🚧 Decide the in-process exec story: move untrusted gene execution under a real OS
    sandbox, or keep it out-of-process and document the denylist as a speed bump (F001).
 3. 🚧 Point the "security" tests at **real product code** — import and exercise `Crucible`
    and `gatekeeper.py` instead of re-implementations (F007).
+4. 🚧 Sign the registry index, so F005's hash check can't be subverted by a tampered index.
 
 **P1 — make the headline real or drop it**
 4. 🚧 Either build a real **LLM bridge** (text → vetted code) behind `self._llm_bridge`, or
@@ -50,4 +52,6 @@ package-manager-plus-sandbox for AI-agent skills.
 
 Consolidated 3 repos → 2; fixed registry content-addressing; added LICENSE/topics; rewrote
 READMEs for clarity + honest maturity; fixed `import re` crash, `crucible_audit` code-scan,
-denylist bypass (F001), signature fail-open (F002), and stub honesty (F003).
+denylist bypass (F001), signature fail-open (F002), and stub honesty (F003). P0 pass: fetch
+size caps (F004), verify-before-land (F005), index out of cwd (F006), remote-audit code scan,
+and two latent land-path crashers (`LYSOSOME_CAPACITY`/`uuid`). Protocol 72 / registry 30 green.
