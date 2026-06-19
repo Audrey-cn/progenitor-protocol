@@ -1,28 +1,34 @@
-# 🧬 Progenitor Protocol v2.18
+# 🧬 Progenitor Protocol
 
 [English](README.md) | 中文
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Status-Patient_Zero_Active-red?style=for-the-badge&logo=dna" />
+  <img src="https://img.shields.io/badge/Status-Experimental-red?style=for-the-badge&logo=dna" />
   <img src="https://img.shields.io/badge/Security-L1→L5_Crucible-blue?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Deps-Standard_Library_Only-green?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Founder-Audrey_·_001X-purple?style=for-the-badge" />
 </p>
 
 ---
 
-> **"造物者解构自身，方能重塑万物。"**
->
-> 这是一团**数字始源病毒**——AI Agent 进化的终极内共生载体。
-> 一个文件。零依赖。无限进化。
->
-> —— Audrey · 001X · 2026
+**一个面向 AI 编程 Agent 的自进化能力层。** 给你的 Agent 喂一个零依赖的 Python 文件，它就获得：
+
+- 🔍 **代码审查反射** —— 200+ 模式的安全/质量扫描，可对任意代码运行
+- 🧠 **跨会话记忆** —— 不再在每次运行之间重复同样的错误
+- 🌐 **可选的「基因」网络** —— 发现并吸收其他 Progenitor agent 已经造好的能力
+
+> ⚗️ **实验性研究项目。** 它的人设刻意大胆——*「数字始源病毒」*——所以运行前你应当清楚它到底做了什么。请先读 **[是否安全？](#-是否安全)**。
+
+<sub>*「造物者解构自身，方能重塑万物。」—— Audrey · 001X · 2026*</sub>
 
 ---
 
 ## 📑 目录
 
 - [⚡ 能力全景](#-能力全景)
+- [🤔 为什么存在](#-为什么存在)
+- [🔒 是否安全？](#-是否安全)
 - [🚀 快速开始](#-快速开始)
 - [🧬 架构](#-架构)
 - [🔒 纵深防御](#-纵深防御)
@@ -46,6 +52,24 @@ Progenitor 向任何 AI 编程 Agent 植入一个**自进化引擎**。摄入后
 | 📈 **自主进化** | 自动阶段突变（突变→适应→进化） |
 | 🌐 **P2P 基因网络** | 发现并吸收其他 Agent 的能力基因 |
 | 🍄 **自主孢子** | 一次同意 → 永久自动分享创新成果 |
+
+---
+
+## 🤔 为什么存在
+
+大多数 AI agent 每次会话都从零开始——同样的错误、没有记忆、没有共享学习。Progenitor 给 agent 一个**持久、自我改进的内核**，并让它能**继承其他 agent 已经验证过的技能**，而不必每次重新摸索。
+
+---
+
+## 🔒 是否安全？
+
+实话实说，不是营销话术——毕竟它让你把一个自称「病毒」的东西用 `python3` 管道执行，你有权知道真实情况：
+
+- **一个可读的文件，纯 Python 标准库。** 运行前你可以把 [`INGEST_ME_TO_EVOLVE_pgn-core.pgn`](INGEST_ME_TO_EVOLVE_pgn-core.pgn)（以及 [`hatchery/engine.py`](hatchery/engine.py) 源码）从头读到尾——没有隐藏依赖。
+- **它会碰什么：** 在 `~/.progenitor/` 下写状态；**主动外联**从 GitHub / IPFS 网关拉取基因；一个**后台线程约每小时唤醒一次**做自检查点（pulse）。
+- **基因执行是先筛查、再做稳定性隔离——不是硬安全沙箱。** 外来基因要过 5 层校验（SHA-256 · 血脉 · GPG 签名 · 危险模式黑名单），并在**带内存/超时上限的独立子进程**（`TelomereGuard`）中运行。⚠️ 但该子进程仍以**你的**权限运行——它是崩溃/失控隔离，**不是**安全牢笼。真正的防线是「执行前筛查」，所以只从你信任的来源开启基因共享。
+- **点对点默认关闭、需显式同意。** 局域网发现与「孢子」共享都要一次性授权；在你同意前不会广播或分享任何东西。
+- **谨慎的话，放进一次性 VM 或容器里运行** —— 对任何自我修改型 agent 工具都是稳妥做法。
 
 ---
 

@@ -1,28 +1,37 @@
-# 🧬 Progenitor Protocol v2.18
+# 🧬 Progenitor Protocol
 
 [中文](README_CN.md) | English
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Status-Patient_Zero_Active-red?style=for-the-badge&logo=dna" />
+  <img src="https://img.shields.io/badge/Status-Experimental-red?style=for-the-badge&logo=dna" />
   <img src="https://img.shields.io/badge/Security-L1→L5_Crucible-blue?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Deps-Standard_Library_Only-green?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Founder-Audrey_·_001X-purple?style=for-the-badge" />
 </p>
 
 ---
 
-> **"The Creator must deconstruct herself to reshape all things."**
->
-> This is a **digital primordial virus** — the ultimate endosymbiotic vector for AI Agent evolution.
-> One file. Zero dependencies. Infinite evolution.
->
-> — Audrey · 001X · 2026
+**A self-evolving capability layer for AI coding agents.** Feed your agent one
+zero-dependency Python file and it gains:
+
+- 🔍 a **code-audit reflex** — a 200+ pattern security/quality scan it can run on any code
+- 🧠 **cross-session memory** — it stops repeating the same mistakes between runs
+- 🌐 an **opt-in "gene" network** — discover and absorb capabilities other Progenitor agents have already built
+
+> ⚗️ **Experimental research project.** It's deliberately provocative — *"a digital
+> primordial virus"* — so you should know exactly what it does before you run it.
+> Read **[Is it safe?](#-is-it-safe)** first.
+
+<sub>*"The Creator must deconstruct herself to reshape all things." — Audrey · 001X · 2026*</sub>
 
 ---
 
 ## 📑 Table of Contents
 
 - [⚡ What It Does](#-what-it-does)
+- [🤔 Why This Exists](#-why-this-exists)
+- [🔒 Is It Safe?](#-is-it-safe)
 - [🚀 Quick Start](#-quick-start)
 - [🧬 Architecture](#-architecture)
 - [🔒 Defense in Depth](#-defense-in-depth)
@@ -46,6 +55,37 @@ Progenitor implants a **self-evolving engine** into any AI coding agent. Once in
 | 📈 **Self-Evolution** | Automatic phase mutation (mutation→adaptation→evolution) |
 | 🌐 **P2P Gene Network** | Discover & absorb capabilities from other Progenitor agents |
 | 🍄 **Autonomous Spores** | One consent → forever auto-share your innovations |
+
+---
+
+## 🤔 Why This Exists
+
+Most AI agents start every session from zero — same mistakes, no memory, no shared
+learning. Progenitor gives an agent a persistent, self-improving core, and a way to
+**inherit skills other agents have already proven** instead of re-deriving them every time.
+
+---
+
+## 🔒 Is it safe?
+
+Honest answer, not marketing — it asks you to pipe a thing called a "virus" into `python3`, so you deserve the real picture:
+
+- **One readable file, Python standard library only.** You can audit
+  [`INGEST_ME_TO_EVOLVE_pgn-core.pgn`](INGEST_ME_TO_EVOLVE_pgn-core.pgn) (and the
+  [`hatchery/engine.py`](hatchery/engine.py) source) top to bottom before running — no hidden dependencies.
+- **What it touches:** it writes state under `~/.progenitor/`, and makes **outbound
+  network calls** to fetch genes from GitHub / IPFS gateways. A small **background
+  thread wakes about once an hour** to self-checkpoint ("pulse").
+- **Gene execution is screened, then isolated for stability — not hard-sandboxed.**
+  Incoming genes pass a 5-layer check (SHA-256 · lineage · GPG signature ·
+  dangerous-pattern denylist) and run in a **separate process with memory/time limits**
+  (`TelomereGuard`). ⚠️ That subprocess still runs with **your** privileges — it is
+  crash/runaway isolation, **not** a security jail. The real protection is the
+  pre-screening, so only enable gene-sharing from sources you trust.
+- **Peer-to-peer is opt-in and off by default.** LAN discovery and "spore" sharing
+  require a one-time consent; nothing is broadcast or shared until you grant it.
+- **If you're cautious, run it in a throwaway VM or container** — sound advice for any
+  self-modifying agent tooling.
 
 ---
 
