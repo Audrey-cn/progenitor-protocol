@@ -46,9 +46,13 @@ package-manager-plus-sandbox for AI-agent skills.
 7. 🚧 Split the 6,200-line `engine.py` into the modules in `RUNTIME_AND_BUILD_PLAN.md`.
 8. 🚧 Grow the registry beyond self-authored demo genes (prove the open model with ≥1 external contributor).
 
-**P3 — hygiene**
-9. 🚧 Single source of truth for the version number; reconcile the three "L1–L5" models.
-10. 🚧 Add `CHANGELOG.md` (or remove the README link); resolve the `../AGENTS.md` link.
+**P3 — hygiene** ✅ done
+9. ✅ Version clarified: `CHANGELOG.md` is the release record; `protocol_version` (2.6) is the
+   engine schema, distinct from the contract doc version. README "Defense in Depth" now
+   describes the real runtime audit + the registry gatekeeper separately (was three conflated
+   "L1–L5" schemes).
+10. ✅ Added `CHANGELOG.md` and `docs/AGENTS.md`; fixed the broken `../AGENTS.md` README link;
+    tagline corrected to "self-bootstrapping" (self-evolution is label-only).
 
 ## Done in the 2026-06-19 pass
 

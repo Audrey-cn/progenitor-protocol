@@ -12,7 +12,7 @@
 
 ---
 
-**一个面向 AI 编程 Agent 的自进化能力层。** 给你的 Agent 喂一个零依赖的 Python 文件，它就获得：
+**一个面向 AI 编程 Agent 的自举能力层。** 给你的 Agent 喂一个零依赖的 Python 文件，它就获得：
 
 - 🔍 **代码审查反射** —— 基于 AST 的安全扫描（高危调用黑名单 + 完整性/血脉分层校验）
 - 🧠 **跨会话状态** —— 状态持久化到磁盘，带着上下文继续，而非每次冷启动
@@ -187,17 +187,21 @@ python3 incubator.py    # 输出: ../INGEST_ME_TO_EVOLVE_pgn-core.pgn
 
 ## 🔒 纵深防御
 
-所有外部代码执行前须经过**五层安全审计**：
+系统有**两道独立的分层校验**——一道在**运行时**（Agent 摄入基因时），一道在 **CI**（基因提交到 registry 时）。
 
-| 层级 | 名称 | 校验内容 |
-|------|------|----------|
-| L1 | 完整性 | SHA-256 哈希匹配 |
-| L2 | 血脉 | 必须携带 `PGN@` 谱系前缀 |
-| L3 | 创造者 | 创造者须在 `ALLOWED_CREATORS` 中 |
-| L4 | 灵魂 | 创世誓言奇点哈希 |
-| L5 | 数字签名 | GPG 签名验证 |
+**运行时基因审计**（`engine.crucible_audit` + `Crucible`）：
 
-**双轨谱系**：内部基因（Audrey 001X）直接通过。外部贡献进入隔离舱 → 重构 → 集成。
+| 校验 | 内容 | 默认 |
+|---|---|---|
+| 完整性 | SHA-256 内容寻址（文件名 == 字节哈希） | 强制 |
+| 血脉 | 必须携带 `PGN@` 谱系前缀 | 强制 |
+| 创造者 | `ALLOWED_CREATORS` 白名单 | **开放**（默认空，除非设 `PROGENITOR_ALLOWED_CREATORS`） |
+| 代码扫描 | AST 高危调用黑名单（`os.system`/`eval`/`exec`/`subprocess`/… + `getattr`/`__subclasses__`/`__builtins__` 逃逸花招） | 强制 |
+| 签名 | GPG 验证 | 可选（仅当 `PROGENITOR_SIGNATURE_MODE=strict` + 配置指纹时强制） |
+
+随后基因的**执行**默认被拒绝，除非显式开启（`PROGENITOR_ALLOW_GENE_EXEC=1`）——黑名单是预筛查、不是安全边界（见 [是否安全？](#-是否安全)）。
+
+**Registry 守门人 CI**（`.github/workflows/gatekeeper.py`）对每个提交的基因独立跑：L0 限流 · L1 血脉 · L2 内容寻址 · L3 创造者（开放）· L4 质量 · L5 安全扫描（走 `policy/security_rules.json`）。
 
 ---
 
@@ -245,7 +249,7 @@ cd hatchery && python3 incubator.py
 |------|------|
 | [孵化器 G017 自我复制基因](docs/G017_HATCHERY_SELF_REPLICATE_CN.md) | G017 如何通过方案 A（GitHub 拉取）和方案 B（嵌入载荷提取）实现自主孵化器重建 |
 | [激活路径 Lv.0→Lv.4](docs/ACTIVATION_PATH_CN.md) | 游戏化引导漏斗——每个阶段只问一次，之后永不打扰 |
-| [AGENTS.md](../AGENTS.md) | Agent 操作手册——Progenitor Agent 的核心指令 |
+| [AGENTS.md](docs/AGENTS.md) | Agent 操作手册——Progenitor Agent 的核心指令 |
 
 ---
 

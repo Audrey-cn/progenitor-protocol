@@ -61,9 +61,11 @@ genes. The peer mesh has only its lowest primitives (identity signing, candidate
 store, beacon scaffolding); the documented CLI verbs (`peer-add/discover/handshake/resolve`)
 don't exist; the `engine.py` modularization in `RUNTIME_AND_BUILD_PLAN.md` hasn't started.
 
-Doc/code drift to clean up: incoherent version numbers (2.18 / 2.0 / 1.0.0 / 2.2 / 2.5 / 2.6),
-three different meanings of "L1–L5", and README links to a non-existent `CHANGELOG.md` and
-`../AGENTS.md`.
+Doc/code drift (✅ resolved 2026-06-19): version numbers clarified (`CHANGELOG.md` is the
+release record; `protocol_version` 2.6 is the engine schema, distinct from the contract doc
+version); README "Defense in Depth" now describes the runtime audit + registry gatekeeper
+separately instead of three conflated "L1–L5" schemes; `CHANGELOG.md` and `docs/AGENTS.md`
+added and the broken links fixed.
 
 ## 6. Fixed across this review's passes
 

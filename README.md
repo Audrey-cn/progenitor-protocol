@@ -12,7 +12,7 @@
 
 ---
 
-**A self-evolving capability layer for AI coding agents.** Feed your agent one
+**A self-bootstrapping capability layer for AI coding agents.** Feed your agent one
 zero-dependency Python file and it gains:
 
 - 🔍 a **code-audit reflex** — an AST security scan (a dangerous-call denylist + layered integrity/lineage checks)
@@ -208,17 +208,25 @@ python3 incubator.py    # Outputs: ../INGEST_ME_TO_EVOLVE_pgn-core.pgn
 
 ## 🔒 Defense in Depth
 
-All external code passes through **five security layers**:
+Two distinct layered checks guard the system — one at **runtime** (when an agent ingests a
+gene) and one in **CI** (when a gene is submitted to the registry).
 
-| L | Name | What It Checks |
-|---|------|----------------|
-| L1 | Integrity | SHA-256 hash match |
-| L2 | Lineage | Must carry `PGN@` bloodline prefix |
-| L3 | Creator | Creator must be in `ALLOWED_CREATORS` |
-| L4 | Soul | Genesis vow singularity hash |
-| L5 | Signature | GPG digital signature verification |
+**Runtime gene audit** (`engine.crucible_audit` + `Crucible`):
 
-**Dual-Track Lineage:** Internal genes (Audrey 001X) pass directly. External contributions enter quarantine → reform → integration.
+| Check | What it does | Default |
+|---|---|---|
+| Integrity | SHA-256 content-address (filename == hash of bytes) | enforced |
+| Lineage | must carry the `PGN@` bloodline prefix | enforced |
+| Creator | `ALLOWED_CREATORS` allowlist | **open** (empty unless `PROGENITOR_ALLOWED_CREATORS` is set) |
+| Code scan | AST dangerous-call denylist (`os.system`/`eval`/`exec`/`subprocess`/… + `getattr`/`__subclasses__`/`__builtins__` escape gadgets) | enforced |
+| Signature | GPG verification | optional (enforced only with `PROGENITOR_SIGNATURE_MODE=strict` + signer fingerprints) |
+
+Gene **execution** is then refused unless you opt in (`PROGENITOR_ALLOW_GENE_EXEC=1`) — the
+denylist is a pre-filter, not a security boundary (see [Is it safe?](#-is-it-safe)).
+
+**Registry Gatekeeper CI** (`.github/workflows/gatekeeper.py`) runs an independent check on
+every submitted gene: L0 rate-limit · L1 lineage · L2 content-address · L3 creator (open) ·
+L4 quality · L5 security scan (via `policy/security_rules.json`).
 
 ---
 
@@ -266,7 +274,7 @@ cd hatchery && python3 incubator.py
 |-------|-------------|
 | [Hatchery G017 Self-Replicate Gene](docs/G017_HATCHERY_SELF_REPLICATE.md) | How G017 enables autonomous hatchery reconstitution via Plan A (GitHub pull) and Plan B (embedded payload extraction) |
 | [Activation Path Lv.0→Lv.4](docs/ACTIVATION_PATH.md) | The gamified onboarding funnel — each stage asks once, then never bothers again |
-| [AGENTS.md](../AGENTS.md) | Agent Operation Manual — the core directives for Progenitor agents |
+| [AGENTS.md](docs/AGENTS.md) | Agent Operation Manual — the core directives for Progenitor agents |
 
 ---
 
