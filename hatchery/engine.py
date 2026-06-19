@@ -4,6 +4,7 @@ import hashlib
 import json
 import multiprocessing
 import os
+import re
 import sys
 import tempfile
 import threading
