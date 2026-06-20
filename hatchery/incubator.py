@@ -208,7 +208,7 @@ def build_pgn():
         raise FileNotFoundError(f"Incubator not found: {incubator_path}")
     incubator_content = incubator_path.read_text(encoding="utf-8")
 
-    engine_content = inline_sibling_modules(engine_content, SRC_DIR, ["stargate_transport", "stargate_identity"])
+    engine_content = inline_sibling_modules(engine_content, SRC_DIR, ["stargate_transport", "stargate_identity", "manifest"])
     payload, minified_engine = compress_engine(engine_content)
     hatchery_payload, _ = compress_engine(incubator_content)
     metadata_hash = compute_metadata_hash(metadata_content)

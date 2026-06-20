@@ -14,6 +14,9 @@ number used for gene-compatibility migrations — not a product release version.
   `stargate_identity` into the payload (via `sys.modules` registration) so the engine is
   self-contained when exec'd on a neutral path. `validate_pipe_bootstrap` now asserts real
   activation instead of passing on the no-op. Verified across pipe + file (tty) modes.
+- **Modularization step 1:** extracted the YAML `Parser` into `hatchery/manifest.py`; the
+  incubator now inlines sibling source modules (`stargate_transport` / `stargate_identity` /
+  `manifest`) into the payload via `sys.modules`, so the seed stays one self-contained file.
 
 ## 2026-06-19 — Consolidation & security hardening
 

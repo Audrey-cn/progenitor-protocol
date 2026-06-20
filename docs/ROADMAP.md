@@ -52,11 +52,14 @@ package-manager-plus-sandbox for AI-agent skills.
 **P2 — the distributed vision**
 6. 🚧 Real peer handshake + trust store + the documented `peer-*` verbs (PEER_MESH plan).
 7. ⏳ Split the 6,200-line `engine.py` into modules (`RUNTIME_AND_BUILD_PLAN.md`).
-   ✅ **Step 1 done:** CI (`.github/workflows/ci.yml`) + `tools/release_check.sh` now gate
-   every change (exit-criterion #1 — pytest + seed rebuild/validate + pipe-bootstrap).
-   🚧 Remaining: the seed `exec`s **one flat namespace**, so this needs a **bundler** that
-   concatenates source modules (in correct module-level order) into the generated `engine.py`
-   — a dedicated build-tool effort, done module-by-module behind the green gate, not a quick cut.
+   ✅ **Step 1:** CI + `tools/release_check.sh` gate every change (exit-criterion #1).
+   ✅ **Step 2:** `inline_sibling_modules` bundler in incubator registers source modules in
+   `sys.modules` so the seed stays self-contained; first leaf extracted — `Parser` →
+   `hatchery/manifest.py` (engine −148 lines), verified green + still activates from `/tmp`.
+   🚧 **Remaining:** a few more clean leaves can move the same way (e.g. genesis/rosetta
+   helpers, compass index helpers). The core classes (`Crucible` / `Progenitor` / `Phagocyte`
+   / `ingest`) are mutually entangled and need real untangling first — do it leaf-by-leaf
+   behind the green gate, not in one cut.
 8. 🚧 Grow the registry beyond self-authored demo genes (prove the open model with ≥1 external contributor).
 
 **P3 — hygiene** ✅ done
