@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test deps
+        run: pip install --quiet pytest
+      - name: Run tests
+        run: python -m pytest tests/ -q
+      - name: Rebuild + validate the .pgn seed
+        # incubator.py rebuilds the seed and runs validate_pgn + validate_pipe_bootstrap
+        run: python hatchery/incubator.py

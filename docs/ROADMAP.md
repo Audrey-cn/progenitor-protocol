@@ -43,7 +43,12 @@ package-manager-plus-sandbox for AI-agent skills.
 
 **P2 — the distributed vision**
 6. 🚧 Real peer handshake + trust store + the documented `peer-*` verbs (PEER_MESH plan).
-7. 🚧 Split the 6,200-line `engine.py` into the modules in `RUNTIME_AND_BUILD_PLAN.md`.
+7. ⏳ Split the 6,200-line `engine.py` into modules (`RUNTIME_AND_BUILD_PLAN.md`).
+   ✅ **Step 1 done:** CI (`.github/workflows/ci.yml`) + `tools/release_check.sh` now gate
+   every change (exit-criterion #1 — pytest + seed rebuild/validate + pipe-bootstrap).
+   🚧 Remaining: the seed `exec`s **one flat namespace**, so this needs a **bundler** that
+   concatenates source modules (in correct module-level order) into the generated `engine.py`
+   — a dedicated build-tool effort, done module-by-module behind the green gate, not a quick cut.
 8. 🚧 Grow the registry beyond self-authored demo genes (prove the open model with ≥1 external contributor).
 
 **P3 — hygiene** ✅ done
@@ -63,4 +68,5 @@ size caps (F004), verify-before-land (F005), index out of cwd (F006), remote-aud
 and all security tests rewritten onto real code (F007). Fixed a systemic latent-crash class:
 **8 missing module-level imports** (`re`/`uuid`/`time`/`shutil`/`socket`/`subprocess`/`datetime`/
 `urllib`) + undefined `LYSOSOME_CAPACITY` that crashed the spore/landing/sync paths on first
-use. Protocol 63 / registry 21 tests green (all real).
+use. Stood up CI (protocol + registry) + `tools/release_check.sh` as the modularization safety
+net (P2 step 1). Protocol 63 / registry 21 tests green (all real).
