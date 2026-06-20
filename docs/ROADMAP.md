@@ -23,6 +23,16 @@ package-manager-plus-sandbox for AI-agent skills.
 
 ## Next (prioritized)
 
+**⛔ BLOCKER — the self-bootstrap install is a no-op (found 2026-06-20)**
+- 🚧 Neither `curl | python3` nor `python3 seed.pgn` activates the engine: the executable
+  top bootstrap only runs under `not sys.stdin.isatty()` and re-reads already-consumed stdin,
+  while the complete bootstrap (file/`__file__`/auto-discover) sits inert inside the
+  `_="""..."""` doc string. Only `from engine import ingest; ingest(seed)` works.
+  **Fix:** rework the incubator so the executable bootstrap extracts `[PRIMORDIAL_PAYLOAD]`
+  from its own embedded source (works in pipe + file + tty), and make `validate_pipe_bootstrap`
+  assert *real activation* (it currently passes on the no-op). This is **the #1 priority —
+  above modularization.** Needs a focused effort with cross-mode tests, not a quick patch.
+
 **P0 — credibility & safety (before any promotion)**
 1. ✅ Closed the network/validation mediums: fetch **size caps** (F004), **content-address
    verified before landing** (F005), index moved out of **cwd** to the runtime dir (F006).
