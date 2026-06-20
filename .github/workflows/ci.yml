@@ -10,14 +10,25 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout protocol
+        uses: actions/checkout@v4
+        with:
+          path: progenitor-protocol
+      # The stargate-resolver integration tests resolve against the registry's index,
+      # which repo_paths.py expects as a sibling dir. Check it out alongside.
+      - name: Checkout sibling registry
+        uses: actions/checkout@v4
+        with:
+          repository: Audrey-cn/progenitor-registry
+          path: progenitor-registry
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Install test deps
         run: pip install --quiet pytest
       - name: Run tests
+        working-directory: progenitor-protocol
         run: python -m pytest tests/ -q
       - name: Rebuild + validate the .pgn seed
-        # incubator.py rebuilds the seed and runs validate_pgn + validate_pipe_bootstrap
+        working-directory: progenitor-protocol
         run: python hatchery/incubator.py
