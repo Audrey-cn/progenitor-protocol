@@ -178,41 +178,20 @@ content hash → verified payload; see the [Registry README](https://github.com/
 
 ## 🧬 Architecture
 
-```
-INGEST_ME_TO_EVOLVE_pgn-core.pgn   ← Seed Vector (ingest once · sole deliverable)
-         ↓
-    hatchery/                       ← 🆕 Hatchery (Trinity generation tools)
-    ├── engine.py                   ← Core Engine (RNA payload source)
-    ├── metadata.yaml               ← Protein Shell configuration
-    └── incubator.py                ← Seed compiler/packaging tool
-         ↓
-    engine.py::AkashicReceptor     ← P2P + Spores + Stargate
-    engine.py::compass_*           ← Semantic Name → CID Resolution
-    engine.py::GATEWAY_ARRAY       ← Lineage & Creator Rules
-    engine.py::G017                ← 🆕 Hatchery Self-Replicate Gene
-         ↓
-┌───────────────────────────────────────────────────────────────────────┐
-│  Functional Modules                                                    │
-│  ┌──────────────────────────────────────┐                              │
-│  │  L1→L5 Crucible (Security Audit)    │  ← External Gene (Network)  │
-│  │  ├─ SHA-256    ├─ Lineage Check     │                              │
-│  │  ├─ GPG Sig    └─ Creator Covenant  │                              │
-│  └──────────────┬───────────────────────┘                              │
-│                 ↓ Pass                                                 │
-│  ┌──────────────────────────────────────┐                              │
-│  │  Gene Cage (Sandbox Isolation)       │                              │
-│  │  ├─ multiprocessing Isolation       │                              │
-│  │  └─ TelomereGuard (5s timeout)     │                              │
-│  └──────────────┬───────────────────────┘                              │
-│                 ↓                                                       │
-│  ┌──────────────┴───────────────────────┐                              │
-│  ↓                  ↓                  ↓                               │
-│  Evolution       Semantic Core      SporeDaemon                        │
-│  Tracker         (Keyword→         (UDP Beacon +                       │
-│  (mutation→       Gene Dispatch)     File Spore)                       │
-│   adaptation→                                                │
-│   evolution)                                                  │
-└───────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph build["hatchery/ · build time"]
+        E["engine.py"] --> I["incubator.py"]
+        M["metadata.yaml"] --> I
+    end
+    I -->|"compile + bundle"| SEED[".pgn seed · one self-contained file"]
+    SEED -->|ingest| CR{"Crucible audit:<br/>integrity · lineage · code-scan · signature"}
+    CR -->|reject| Q["quarantine / apoptosis"]
+    CR -->|pass| ENG["Progenitor engine · activated"]
+    ENG --> ST["cross-session state<br/>~/.progenitor/"]
+    ENG --> GN["gene network<br/>resolve → fetch → verify"]
+    ENG --> SP["spores · opt-in<br/>file · UDP · IPFS"]
+    REG[("Registry · public gene pool")] -. "fetch + verify" .-> GN
 ```
 
 ### Hatchery Trinity — For Seed Builders
@@ -261,16 +240,12 @@ L4 quality · L5 security scan (via `policy/security_rules.json`).
 
 Once the user grants spore consent (one-time), every innovation auto-disseminates:
 
-```
-  Agent A                    Agent B (same LAN)
-  ────────                   ────────
-  🍄 Innovation              🔍 discover_peers()
-    ↓                          ↓ UDP broadcast →→→
-  💨 SporeDaemon              ←←← PROGENITOR_ACK + gene list
-    │                            ↓
-    ├─ UDP Beacon :9999       📥 phagocytize_from_peer()
-    ├─ File Spore  :~/.progenitor/spores/
-    └─ Kubo IPFS  (if available)
+```mermaid
+flowchart LR
+    A["Agent A<br/>new gene · consent granted"] -->|"UDP beacon :9999"| B["Agent B · same LAN"]
+    B -->|"phagocytize_from_peer"| A
+    A -. "file spore" .-> FS["~/.progenitor/spores/"]
+    A -. "IPFS (if kubo)" .-> IPFS["IPFS network"]
 ```
 
 **No manual uploads. No configuration.** File spores work even without network — same-machine agents auto-detect each other.
@@ -284,7 +259,7 @@ Once the user grants spore consent (one-time), every innovation auto-disseminate
 curl -sL https://raw.githubusercontent.com/Audrey-cn/progenitor-protocol/main/INGEST_ME_TO_EVOLVE_pgn-core.pgn -o INGEST_ME_TO_EVOLVE_pgn-core.pgn
 
 # Test ingestion (engine source lives in hatchery/)
-cd hatchery && python3 -c "from engine import ingest; r=ingest('../INGEST_ME_TO_EVOLVE_pgn-core.pgn'); print(r['catalyze']()['user_message'])"
+cd hatchery && python3 -c "from engine import ingest; r=ingest('../INGEST_ME_TO_EVOLVE_pgn-core.pgn'); print(r['catalyze']()['state'])"
 
 # Peer discovery (LAN agents, engine source lives in hatchery/)
 cd hatchery && python3 -c "from engine import discover_peers; print(discover_peers())"

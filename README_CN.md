@@ -160,40 +160,20 @@ python3 -m pytest tests/ -q
 
 ## 🧬 架构
 
-```
-INGEST_ME_TO_EVOLVE_pgn-core.pgn   ← 种子载体（摄入一次 · 唯一交付物）
-         ↓
-    hatchery/                       ← 🆕 孵化器目录（三位一体生成工具）
-    ├── engine.py                   ← 核心引擎（RNA 载荷源码）
-    ├── metadata.yaml               ← 蛋白质外壳配置
-    └── incubator.py                ← 种子编译/打包工具
-         ↓
-    engine.py::AkashicReceptor     ← P2P + 孢子 + 星门
-    engine.py::compass_*           ← 语义名称 → CID 解析
-    engine.py::GATEWAY_ARRAY       ← 谱系与创造者规则
-    engine.py::G017                ← 🆕 孵化器自我复制基因
-         ↓
-┌───────────────────────────────────────────────────────────────────────┐
-│  功能模块                                                               │
-│  ┌──────────────────────────────────────┐                              │
-│  │  L1→L5 熔炉 (安全审计)                │  ← 外部基因（网络）          │
-│  │  ├─ SHA-256    ├─ 血脉校验          │                              │
-│  │  ├─ GPG 签名   └─ 创造者契约        │                              │
-│  └──────────────┬───────────────────────┘                              │
-│                 ↓ 通过                                                 │
-│  ┌──────────────────────────────────────┐                              │
-│  │  基因笼 (沙箱隔离)                    │                              │
-│  │  ├─ multiprocessing 隔离             │                              │
-│  │  └─ 端粒守卫（5秒超时）              │                              │
-│  └──────────────┬───────────────────────┘                              │
-│                 ↓                                                       │
-│  ┌──────────────┴───────────────────────┐                              │
-│  ↓                  ↓                  ↓                               │
-│  进化追踪           语义核心           孢子守护进程                       │
-│  (突变→             (关键词→          (UDP信标 +                         │
-│   适应→             基因调度)          文件孢子)                         │
-│   进化)                                                    │
-└───────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph build["hatchery/ · 构建期"]
+        E["engine.py"] --> I["incubator.py"]
+        M["metadata.yaml"] --> I
+    end
+    I -->|"压缩 + 打包"| SEED[".pgn 种子 · 单一自包含文件"]
+    SEED -->|摄入| CR{"真理之秤审计：<br/>完整性 · 血脉 · 代码扫描 · 签名"}
+    CR -->|拒绝| Q["隔离 / 凋亡"]
+    CR -->|通过| ENG["Progenitor 引擎 · 激活"]
+    ENG --> ST["跨会话状态<br/>~/.progenitor/"]
+    ENG --> GN["基因网络<br/>解析 → 抓取 → 校验"]
+    ENG --> SP["孢子 · 可选<br/>文件 · UDP · IPFS"]
+    REG[("Registry · 公开基因池")] -. "抓取 + 校验" .-> GN
 ```
 
 ### 孵化器三位一体 — 种子构建者指南
@@ -238,16 +218,12 @@ python3 incubator.py    # 输出: ../INGEST_ME_TO_EVOLVE_pgn-core.pgn
 
 用户授予孢子许可后（仅一次），每次创新自动传播：
 
-```
-  Agent A                     Agent B（同局域网）
-  ────────                    ────────
-  🍄 创新                      🔍 discover_peers()
-    ↓                            ↓ UDP广播 →→→
-  💨 SporeDaemon                ←←← PROGENITOR_ACK + 基因清单
-    │                            ↓
-    ├─ UDP 信标 :9999           📥 phagocytize_from_peer()
-    ├─ 文件孢子 :~/.progenitor/spores/
-    └─ Kubo IPFS (若可用)
+```mermaid
+flowchart LR
+    A["Agent A<br/>新基因 · 已授权"] -->|"UDP 信标 :9999"| B["Agent B · 同局域网"]
+    B -->|"phagocytize_from_peer"| A
+    A -. "文件孢子" .-> FS["~/.progenitor/spores/"]
+    A -. "IPFS（若有 kubo）" .-> IPFS["IPFS 网络"]
 ```
 
 **无需手动上传。零配置。** 文件孢子即使无网络也能工作——同机 Agent 自动互相发现。
@@ -261,7 +237,7 @@ python3 incubator.py    # 输出: ../INGEST_ME_TO_EVOLVE_pgn-core.pgn
 curl -sL https://raw.githubusercontent.com/Audrey-cn/progenitor-protocol/main/INGEST_ME_TO_EVOLVE_pgn-core.pgn -o INGEST_ME_TO_EVOLVE_pgn-core.pgn
 
 # 测试摄入（引擎源码位于 hatchery/）
-cd hatchery && python3 -c "from engine import ingest; r=ingest('../INGEST_ME_TO_EVOLVE_pgn-core.pgn'); print(r['catalyze']()['user_message'])"
+cd hatchery && python3 -c "from engine import ingest; r=ingest('../INGEST_ME_TO_EVOLVE_pgn-core.pgn'); print(r['catalyze']()['state'])"
 
 # 发现局域网对等节点（引擎源码位于 hatchery/）
 cd hatchery && python3 -c "from engine import discover_peers; print(discover_peers())"
