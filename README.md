@@ -180,10 +180,8 @@ content hash → verified payload; see the [Registry README](https://github.com/
 
 ```mermaid
 flowchart TD
-    subgraph build["hatchery/ · build time"]
-        E["engine.py"] --> I["incubator.py"]
-        M["metadata.yaml"] --> I
-    end
+    E["engine.py"] --> I["incubator.py"]
+    M["metadata.yaml"] --> I["incubator.py"]
     I -->|"compile + bundle"| SEED[".pgn seed · one self-contained file"]
     SEED -->|ingest| CR{"Crucible audit:<br/>integrity · lineage · code-scan · signature"}
     CR -->|reject| Q["quarantine / apoptosis"]

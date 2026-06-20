@@ -162,10 +162,8 @@ python3 -m pytest tests/ -q
 
 ```mermaid
 flowchart TD
-    subgraph build["hatchery/ · 构建期"]
-        E["engine.py"] --> I["incubator.py"]
-        M["metadata.yaml"] --> I
-    end
+    E["engine.py"] --> I["incubator.py"]
+    M["metadata.yaml"] --> I["incubator.py"]
     I -->|"压缩 + 打包"| SEED[".pgn 种子 · 单一自包含文件"]
     SEED -->|摄入| CR{"真理之秤审计：<br/>完整性 · 血脉 · 代码扫描 · 签名"}
     CR -->|拒绝| Q["隔离 / 凋亡"]
