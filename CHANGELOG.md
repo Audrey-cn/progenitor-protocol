@@ -4,6 +4,17 @@ Release record for Progenitor Protocol. Dates are authoritative. The engine's in
 `protocol_version` (currently **2.6**, in `hatchery/metadata.yaml`) is a separate schema
 number used for gene-compatibility migrations — not a product release version.
 
+## 2026-06-20 — Self-bootstrap install fixed
+
+- The headline install was a **no-op**: the executable bootstrap re-read already-consumed
+  stdin and only ran under `not isatty()`, so `curl | python3` **and** `python3 seed.pgn`
+  activated nothing (only direct `from engine import ingest; ingest(seed)` worked).
+- **Fixed in `incubator.py`:** the executable bootstrap now reads `[PRIMORDIAL_PAYLOAD]` from
+  the seed's own embedded `_` string, and the build **inlines** `stargate_transport` /
+  `stargate_identity` into the payload (via `sys.modules` registration) so the engine is
+  self-contained when exec'd on a neutral path. `validate_pipe_bootstrap` now asserts real
+  activation instead of passing on the no-op. Verified across pipe + file (tty) modes.
+
 ## 2026-06-19 — Consolidation & security hardening
 
 ### Repo / project

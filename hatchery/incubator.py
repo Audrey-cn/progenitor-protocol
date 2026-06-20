@@ -30,6 +30,60 @@ def compress_engine(engine_content):
     compressed = zlib.compress(minified.encode("utf-8"), level=9)
     return base64.b64encode(compressed).decode("utf-8"), minified
 
+
+def inline_sibling_modules(engine_src, src_dir, names):
+    """[Bundler] Make the payload self-contained.
+
+    The engine imports sibling modules (stargate_transport / stargate_identity) that are NOT
+    shipped inside the .pgn. When the payload is exec'd standalone (pipe/file install) those
+    imports fail. Prepend a block that registers each module in sys.modules from embedded
+    source, so the engine's existing `import ...` lines resolve without any files on disk.
+    """
+    lines = ["import sys as _bsys", "import types as _btypes"]
+    for name in names:
+        src = (src_dir / (name + ".py")).read_text(encoding="utf-8")
+        lines.append("if %r not in _bsys.modules:" % name)
+        lines.append("    _bmod = _btypes.ModuleType(%r)" % name)
+        lines.append("    exec(compile(%r, %r, 'exec'), _bmod.__dict__)" % (src, name))
+        lines.append("    _bsys.modules[%r] = _bmod" % name)
+    return "\n".join(lines) + "\n" + engine_src
+
+
+def get_activation_code():
+    """The REAL executable bootstrap, placed AFTER the `_ = \"\"\"...\"\"\"` payload string.
+
+    It extracts the payload from the seed's own embedded `_` string (not stdin), so it works
+    in every mode: `curl | python3`, `python3 seed.pgn`, and an interactive terminal.
+    """
+    return '''
+
+if __name__ == '__main__':
+    import sys as _s, zlib as _z, base64 as _b, re as _r, os as _o, tempfile as _tf
+    _mm = _r.search(r'\\[PRIMORDIAL_PAYLOAD\\]\\s+([a-zA-Z0-9+/=]+)', _)
+    if _mm:
+        _t = _tf.NamedTemporaryFile(mode='w', suffix='.pgn', delete=False, encoding='utf-8')
+        _t.write(_)
+        _t.close()
+        try:
+            _ns = {'__name__': '__progenitor_seed__', '__file__': _t.name}
+            exec(_z.decompress(_b.b64decode(_mm.group(1))).decode('utf-8'), _ns)
+            _act = _ns['ingest'](_t.name)['catalyze']()
+            if _act.get('state') != 'alive':
+                print('Progenitor not activated: ' + str(_act.get('reason', '?')), file=_s.stderr)
+                _s.exit(1)
+            _tools = _act.get('tools', {})
+            if 'start_daemon_pulse' in _tools:
+                _tools['start_daemon_pulse']()
+            if 'trigger_hook' in _tools:
+                _tools['trigger_hook']('on_agent_bootstrap')
+            print('\\U0001f9ec Progenitor activated')
+        except Exception as _e:
+            print('Progenitor activation error: ' + str(_e), file=_s.stderr)
+            _s.exit(1)
+        finally:
+            _o.unlink(_t.name)
+'''
+
 def compute_metadata_hash(metadata_content):
     return hashlib.sha256(metadata_content.encode("utf-8")).hexdigest()
 
@@ -154,44 +208,18 @@ def build_pgn():
         raise FileNotFoundError(f"Incubator not found: {incubator_path}")
     incubator_content = incubator_path.read_text(encoding="utf-8")
 
+    engine_content = inline_sibling_modules(engine_content, SRC_DIR, ["stargate_transport", "stargate_identity"])
     payload, minified_engine = compress_engine(engine_content)
     hatchery_payload, _ = compress_engine(incubator_content)
     metadata_hash = compute_metadata_hash(metadata_content)
 
     yaml_sections = f"```yaml\n{metadata_content}\n```"
-    bootstrap_code = get_bootstrap_code(metadata_hash)
+    bootstrap_code = get_activation_code()
 
-    shebang_bootstrap = '''#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-import sys
-if __name__ == "__main__" and not sys.stdin.isatty():
-    import zlib, base64, re, os, hashlib, tempfile
-    from pathlib import Path
-    _content = sys.stdin.read()
-    _m = re.search(r'\\[PRIMORDIAL_PAYLOAD\\]\\s+([a-zA-Z0-9+/=]+)', _content)
-    if _m:
-        _env = {'__file__': '/dev/stdin'}
-        try:
-            exec(zlib.decompress(base64.b64decode(_m.group(1))).decode('utf-8'), _env)
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.pgn', delete=False) as tmp:
-                tmp.write(_content)
-                _f = tmp.name
-            try:
-                vessel = _env['ingest'](_f)
-                activated = vessel['catalyze']()
-                if 'start_daemon_pulse' in activated.get('tools', {}):
-                    activated['tools']['start_daemon_pulse']()
-                if 'trigger_hook' in activated.get('tools', {}):
-                    activated['tools']['trigger_hook']('on_agent_bootstrap')
-            finally:
-                os.unlink(_f)
-        except Exception as e:
-            print(f"Error: {e}", file=sys.stderr)
-            sys.exit(1)
-    sys.exit(0)
-
-# The rest is metadata - not executed, but preserved for documentation
-_ = """'''
+    # Opener only: the real, working bootstrap is appended AFTER the `_ = """...""" `
+    # payload string (see get_activation_code) so it can read the payload from the seed's
+    # own embedded `_` — works for `curl | python3`, `python3 seed.pgn`, and a terminal.
+    shebang_bootstrap = '#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n_ = """'
 
     pgn_content = f"""{shebang_bootstrap}
 # 🧬 Progenitor Protocol · 始源载体 v2.4 · 生物病毒结构
@@ -333,7 +361,8 @@ AST 精简后：{len(minified_engine):,} chars (-{int((1 - len(minified_engine)/
 *此载体由 Progenitor 协议铭刻 · Audrey · 001X 的创始印记 · 碳基依赖级不可变 · SHA-256 锁死*
 """
 
-    pgn_content += '"""'
+    pgn_content += '"""\n'
+    pgn_content += get_activation_code()
 
     OUTPUT_FILE.write_text(pgn_content, encoding="utf-8")
 
@@ -423,10 +452,11 @@ def validate_pipe_bootstrap(pgn_path):
         print(f"  ❌ [CI FAIL] Pipe bootstrap exit code: {process.returncode}")
         print(f"  stderr: {process.stderr[:500]}")
         return False
-    if "ingest" not in process.stdout.lower() and "activated" not in process.stdout.lower():
-        if process.stdout.strip():
-            print(f"  stdout: {process.stdout[:300]}")
-    print("  ✅ Pipe-mode self-bootstrap completed successfully")
+    if "progenitor activated" not in process.stdout.lower():
+        print("  ❌ [CI FAIL] no activation marker in pipe output (engine did not bootstrap)")
+        print(f"  stdout: {process.stdout[:300]}\n  stderr: {process.stderr[:300]}")
+        return False
+    print("  ✅ Pipe-mode self-bootstrap ACTIVATED the engine")
     return True
 
 if __name__ == "__main__":
