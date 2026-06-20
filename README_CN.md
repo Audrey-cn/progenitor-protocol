@@ -1,10 +1,8 @@
 <div align="center">
 
-# 🧬 Progenitor Protocol
+<img src="assets/banner.svg" alt="Progenitor Protocol — 面向 AI 编程 Agent 的自举能力层" width="820">
 
 **一个面向 AI 编程 Agent 的自举能力层**
-
-*一个零依赖的 Python 文件——摄入一次，你的 Agent 就获得一套经安全筛查的「保存状态 + 拉取可复用技能」的能力。*
 
 [English](README.md) · [中文](README_CN.md)
 

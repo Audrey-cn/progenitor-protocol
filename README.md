@@ -1,11 +1,6 @@
 <div align="center">
 
-# 🧬 Progenitor Protocol
-
-**A self-bootstrapping capability layer for AI coding agents**
-
-*One zero-dependency Python file — ingest it once, and your agent gains a security-screened
-way to keep state and pull reusable skills.*
+<img src="assets/banner.svg" alt="Progenitor Protocol — a self-bootstrapping capability layer for AI coding agents" width="820">
 
 [English](README.md) · [中文](README_CN.md)
 

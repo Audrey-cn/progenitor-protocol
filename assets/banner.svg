@@ -1,0 +1,37 @@
+<svg width="100%" viewBox="0 0 1200 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Progenitor Protocol">
+  <title>Progenitor Protocol</title>
+  <desc>A self-bootstrapping capability layer for AI coding agents — a two-color DNA double helix beside the wordmark on a dark backdrop.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a0e1f"/>
+      <stop offset="0.55" stop-color="#120a26"/>
+      <stop offset="1" stop-color="#1a0b2e"/>
+    </linearGradient>
+    <linearGradient id="wm" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#c4b5fd"/>
+      <stop offset="1" stop-color="#5eead4"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#7c3aed" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#7c3aed" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="0" y="0" width="1200" height="300" rx="20" fill="url(#bg)"/>
+  <ellipse cx="440" cy="150" rx="380" ry="150" fill="url(#halo)"/>
+  <g stroke-linecap="round">
+    <polyline points="150,40 177,58 188,76 177,94 150,112 123,130 112,148 123,166 150,184 177,202 188,220 177,238 150,256" fill="none" stroke="#a78bfa" stroke-width="3"/>
+    <polyline points="150,40 123,58 112,76 123,94 150,112 177,130 188,148 177,166 150,184 123,202 112,220 123,238 150,256" fill="none" stroke="#5eead4" stroke-width="3"/>
+    <g stroke="#8b93b5" stroke-width="2" opacity="0.45">
+      <line x1="177" y1="58" x2="123" y2="58"/><line x1="188" y1="76" x2="112" y2="76"/><line x1="177" y1="94" x2="123" y2="94"/><line x1="123" y1="130" x2="177" y2="130"/><line x1="112" y1="148" x2="188" y2="148"/><line x1="123" y1="166" x2="177" y2="166"/><line x1="177" y1="202" x2="123" y2="202"/><line x1="188" y1="220" x2="112" y2="220"/><line x1="177" y1="238" x2="123" y2="238"/>
+    </g>
+    <g fill="#a78bfa"><circle cx="150" cy="40" r="5"/><circle cx="177" cy="58" r="5"/><circle cx="188" cy="76" r="5"/><circle cx="177" cy="94" r="5"/><circle cx="150" cy="112" r="5"/><circle cx="123" cy="130" r="5"/><circle cx="112" cy="148" r="5"/><circle cx="123" cy="166" r="5"/><circle cx="150" cy="184" r="5"/><circle cx="177" cy="202" r="5"/><circle cx="188" cy="220" r="5"/><circle cx="177" cy="238" r="5"/><circle cx="150" cy="256" r="5"/></g>
+    <g fill="#5eead4"><circle cx="150" cy="40" r="5"/><circle cx="123" cy="58" r="5"/><circle cx="112" cy="76" r="5"/><circle cx="123" cy="94" r="5"/><circle cx="150" cy="112" r="5"/><circle cx="177" cy="130" r="5"/><circle cx="188" cy="148" r="5"/><circle cx="177" cy="166" r="5"/><circle cx="150" cy="184" r="5"/><circle cx="123" cy="202" r="5"/><circle cx="112" cy="220" r="5"/><circle cx="123" cy="238" r="5"/><circle cx="150" cy="256" r="5"/></g>
+  </g>
+  <text x="298" y="146" font-family="'Segoe UI',system-ui,-apple-system,Helvetica,Arial,sans-serif" font-size="56" font-weight="800" fill="url(#wm)" letter-spacing="0.5">Progenitor Protocol</text>
+  <text x="301" y="182" font-family="'Segoe UI',system-ui,-apple-system,Helvetica,Arial,sans-serif" font-size="22" font-weight="400" fill="#aeb6cc">A self-bootstrapping capability layer for AI coding agents</text>
+  <text x="301" y="212" font-family="'Segoe UI',system-ui,-apple-system,Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#6f7896" letter-spacing="1.2">zero-dependency  ·  standard library only  ·  MIT  ·  experimental</text>
+  <g opacity="0.22" stroke="#5eead4" stroke-width="1.5" fill="#a78bfa">
+    <line x1="1030" y1="85" x2="1100" y2="125"/><line x1="1100" y1="125" x2="1065" y2="205"/><line x1="1100" y1="125" x2="1160" y2="95"/><line x1="1065" y1="205" x2="1140" y2="215"/>
+    <circle cx="1030" cy="85" r="6"/><circle cx="1100" cy="125" r="7"/><circle cx="1065" cy="205" r="6"/><circle cx="1160" cy="95" r="5"/><circle cx="1140" cy="215" r="5"/>
+  </g>
+</svg>
