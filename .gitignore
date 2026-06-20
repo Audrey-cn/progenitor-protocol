@@ -1,5 +1,6 @@
 # Runtime data
 .progenitor_state/
+.progenitor_runtime/
 .akashic_sanctuary/
 .progenitor_lysosome/
 .akashic_index.json
