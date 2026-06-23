@@ -53,14 +53,17 @@ Progenitor implants a self-bootstrapping engine into any AI coding agent. Once i
 
 | Capability | What You Get | Maturity |
 |------------|--------------|----------|
+| 🧬 **Scoped Execution** (Gene Contract v2) | A gene declares `purity`/`grants`; **pure** genes run under an AST allowlist with no I/O and return an *advisory* result; **effectful** genes need per-capability host grants | ✅ working |
+| 🔐 **Web-of-Trust** | Content-addressed + signed index verified against a local trust **keyring**; per-creator gene signatures upgrade `trust_state`; provenance + reputation surfaced | ✅ working |
+| 🤝 **Voluntary Adoption** | `discover → inspect → host decides → cache` — the engine never auto-infects or auto-runs a fetched gene | ✅ working |
 | 🔍 **Code Audit** | AST dangerous-call denylist + layered audit (integrity · lineage · GPG signature) | ✅ working |
 | 🧠 **Persistent State** | Cross-session state on disk (counters, logs, lineage) — carries context forward | ✅ working |
 | 🌐 **Gene Network** | Discover peers (UDP/LAN) + fetch & SHA-256-verify pre-packaged capability genes | ✅ working |
-| 🍄 **Autonomous Spores** | One consent → auto-share via file / UDP / IPFS | ✅ working |
+| 🍄 **Spore Propagation** | One consent → opt-in share via file / UDP / IPFS | ✅ working |
 | 📈 **Lifecycle Phases** | Usage-tracked phase labels (mutation→adaptation→evolution) | ⚠️ label-only, no code generation |
 | 🤖 **Absorb-from-knowledge** | Turn raw text/docs into a runnable capability | 🚧 not implemented (needs an LLM bridge) |
 
-> **Honest maturity note.** The security screening, on-disk state, and peer/spore *transport* are real and tested. "Self-evolution" today is a phase **label** driven by a usage counter — it does not rewrite or generate code. Turning arbitrary knowledge into executable capability — the most ambitious promise — is **not implemented**; only fetching and running a pre-packaged `.pgn` gene works.
+> **Honest maturity note.** The three pillars above — scoped execution, web-of-trust, and voluntary adoption (the corrected "trusted propagation" direction, see [docs/VISION.md](docs/VISION.md)) — are landed and unit-tested, but new and not yet battle-proven at scale. Security screening, on-disk state, and peer/spore *transport* are real and tested. "Evolution" is a usage-driven phase **label**, not code generation or ML; "memory" is checksummed state persistence — see [docs/GLOSSARY.md](docs/GLOSSARY.md) for metaphor ↔ mechanism. Turning arbitrary knowledge into executable capability remains **not implemented**.
 
 ---
 
