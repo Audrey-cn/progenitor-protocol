@@ -6,6 +6,23 @@ Honest status + next steps, derived from the [2026-06-19 review](REVIEW.md). Tag
 > **North star:** [VISION.md](VISION.md) — the corrected direction (frictionless propagation +
 > verifiable provenance + scoped execution + voluntary adoption). Everything below serves it.
 
+## Corrected vision — iterations 1–4 landed (2026-06-23)
+
+The three pillars of the [corrected direction](VISION.md) are implemented and unit-tested
+(protocol 125 tests, registry 42), behind the green release gate:
+
+- **Scoped execution (pillar B):** `hatchery/capability.py` — Gene Contract v2: capability manifest +
+  AST-allowlist pure/advisory execution + per-capability grants + pure-path timeout; wired via
+  `Phagocyte.express_gene`. Registry **L6** rejects genes that falsely claim `purity: pure`.
+- **Trusted provenance (pillar A):** registry `policy/trusted_keys.json` keyring + `tools/trust.py` +
+  `tools/trust_report.py`; per-creator signing (`tools/sign_gene.py`) upgrades `trust_state`; the
+  engine verifies the index against a **keyring** (`PROGENITOR_TRUST_KEYRING[_FILE]`).
+- **Voluntary adoption (pillar C):** `hatchery/adoption.py` (`inspect → decide → adopt`, never
+  auto-infects, never executes) + `Phagocyte.propose_adoption` / `adopt_gene`.
+- **Honesty:** [GLOSSARY.md](GLOSSARY.md) pins every metaphor to its real mechanism.
+
+*Remaining:* WAN federation (IPFS pin/relay + a formalized transport-hint ladder) — needs real-network testing.
+
 ## Vision
 
 A portable, zero-dependency capability layer you inject into any AI coding agent via one
