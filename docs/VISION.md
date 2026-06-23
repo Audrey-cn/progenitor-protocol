@@ -123,6 +123,11 @@ In one phrase: **BitTorrent + signatures + self-bootstrap, for agent skills.**
    multi-path transports + IPFS publish already exist; this is wiring + real-network testing).
 4. **Ongoing — honesty in code:** rename `self-evolution` → lifecycle phases; make "memory" a real
    (small) learned-preference store or keep it labeled "state".
+   *Status (2026-06-23): ✅ landed (honest-labeling branch)* — [GLOSSARY.md](GLOSSARY.md) pins every
+   persona term to its real mechanism (evolution = usage-driven lifecycle phase label, no code
+   self-modification / no ML; memory = checksummed state persistence, not learned memory), with
+   honesty notes in the `EvolutionTracker` / `CrystallizedPersistence` docstrings. Persona kept,
+   claims made truthful. *Optional future:* turn "memory" into a small real learned-preference store.
 
 ## Non-goals (deliberately)
 
