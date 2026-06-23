@@ -266,3 +266,92 @@ def test_bootstrap_import_supports_file_and_legacy_strings(tmp_path, monkeypatch
     assert result["count"] == 2
     peers = stargate_resolver.list_peers()
     assert {peer["peer_url"] for peer in peers} == {"http://127.0.0.1:60001", "http://127.0.0.1:60002"}
+
+
+# ── [P0] Index signature verification ──────────────────────────────────────
+
+
+def test_index_signature_valid():
+    """A well-formed, correctly-signed index passes signature verification."""
+    sig_issues = stargate_resolver.verify_index_signature()
+    assert sig_issues == []
+
+
+def test_index_signature_missing_sig(tmp_path):
+    """Missing .sig file produces an error issue."""
+    index = tmp_path / "unsigned.json"
+    index.write_text(json.dumps({"key": "value"}), encoding="utf-8")
+    issues = stargate_resolver.verify_index_signature(index_path=index)
+    assert len(issues) == 1
+    assert "signature file missing" in issues[0]["reason"]
+
+
+def test_index_signature_tampered_index(tmp_path):
+    """When index content changes but sig stays the same, verification fails."""
+    original = stargate_resolver.INDEX_FILE.read_bytes()
+    original_sig = stargate_resolver.INDEX_FILE.with_suffix(
+        stargate_resolver.INDEX_FILE.suffix + ".sig"
+    ).read_text(encoding="utf-8")
+
+    # Copy index + sig to tmp
+    index = tmp_path / ".akashic_index.json"
+    sig = tmp_path / ".akashic_index.json.sig"
+    index.write_bytes(original)
+    sig.write_text(original_sig, encoding="utf-8")
+
+    # Tamper the index content
+    tampered_content = json.loads(index.read_text(encoding="utf-8"))
+    tampered_content["evil-key"] = {"cid": "evil", "expected_sha256": "e" * 64}
+    index.write_text(json.dumps(tampered_content, ensure_ascii=False), encoding="utf-8")
+
+    issues = stargate_resolver.verify_index_signature(index_path=index)
+    assert len(issues) == 1
+    assert "index_sha256 mismatch" in issues[0]["reason"]
+
+
+def test_index_signature_wrong_key(monkeypatch):
+    """A different public key cannot verify the signature."""
+    wrong_key = json.dumps({
+        "key_type": "progenitor-rsa-sha256-v1",
+        "n": "a" * 128,  # completely wrong key
+        "e": 65537,
+    })
+    monkeypatch.setenv("PROGENITOR_REGISTRY_PUBLIC_KEY", wrong_key)
+    issues = stargate_resolver.verify_index_signature()
+    assert len(issues) == 1
+    assert "cryptographic signature invalid" in issues[0]["reason"]
+
+
+def test_index_signature_bad_envelope(tmp_path):
+    """A .sig file that isn't valid JSON produces an error."""
+    index = tmp_path / "idx.json"
+    sig = tmp_path / "idx.json.sig"
+    index.write_text("{}", encoding="utf-8")
+    sig.write_text("not valid json {{{", encoding="utf-8")
+    issues = stargate_resolver.verify_index_signature(index_path=index)
+    assert len(issues) == 1
+    assert "sig read error" in issues[0]["reason"]
+
+
+def test_index_signature_verify_index_integration():
+    """verify_index() plus verify_index_signature() together catch all issues."""
+    from stargate_resolver import normalize_index, load_index, verify_index, verify_index_signature
+
+    index = normalize_index(load_index())
+    issues = verify_index(index)
+    sig_issues = verify_index_signature()
+    all_issues = issues + sig_issues
+    # With the valid .sig, there should be no sig issues
+    assert sig_issues == []
+    # Content issues should also be 0 for a well-formed registry
+    assert all(i["level"] != "error" or "signature" in i.get("reason", "") for i in all_issues) or len(all_issues) == 0
+
+
+def test_verify_index_signature_load_public_key():
+    """Default public key is valid and loadable."""
+    pk = stargate_resolver.load_registry_public_key()
+    assert pk is not None
+    assert pk["key_type"] == "progenitor-rsa-sha256-v1"
+    assert "n" in pk
+    assert "e" in pk
+    assert pk["e"] == 65537
