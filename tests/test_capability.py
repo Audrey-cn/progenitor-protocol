@@ -78,6 +78,11 @@ def test_run_pure_gene_missing_entry():
     assert out["status"] == "loaded"
 
 
+def test_run_pure_gene_times_out_on_runaway_loop():
+    out = cap.run_pure_gene("def main():\n    while True:\n        pass\n", timeout_sec=1)
+    assert out["status"] == "timeout"
+
+
 # --- manifest parsing ----------------------------------------------------------------------
 
 def test_manifest_parsing_pure_with_grants():

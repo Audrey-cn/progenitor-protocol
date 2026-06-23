@@ -62,6 +62,24 @@ def test_effectful_gene_routes_to_sandbox_and_is_advisory(tmp_path):
     assert "fs:write" in out["manifest"]["grants"]
 
 
+def test_effectful_refused_when_grant_not_consented(tmp_path):
+    # gene declares fs:write; host consents to nothing → ungranted, never reaches the sandbox
+    p = engine.Phagocyte()
+    out = p.express_gene(_write(tmp_path, "writer.py", EFFECTFUL_GENE), grants=set())
+    assert out["status"] == "ungranted"
+    assert out["advisory"] is True
+    assert "fs:write" in out["missing_grants"]
+
+
+def test_effectful_proceeds_when_grant_consented(tmp_path):
+    # host consents to fs:write → consent passes; routing proceeds (sandbox still OS-gated)
+    p = engine.Phagocyte()
+    out = p.express_gene(_write(tmp_path, "writer.py", EFFECTFUL_GENE), grants={"fs:write"})
+    assert out["status"] != "ungranted"
+    assert out["purity"] == "effectful" and out["advisory"] is True
+    assert out["granted"] == ["fs:write"]
+
+
 def test_missing_file_errors_cleanly(tmp_path):
     p = engine.Phagocyte()
     out = p.express_gene(str(tmp_path / "nope.py"))
