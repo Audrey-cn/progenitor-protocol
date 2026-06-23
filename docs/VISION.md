@@ -107,6 +107,12 @@ In one phrase: **BitTorrent + signatures + self-bootstrap, for agent skills.**
    allowlist already denies all I/O); real OS/wasm isolation remains future work for effectful genes.
 2. **Registry — web-of-trust provenance:** per-creator signing (not only the founder) + a
    configurable trust set; surface reputation from `.gene_score_log`. Makes the ledger truly collective.
+   *Status (2026-06-23): ✅ landed* — registry `policy/trusted_keys.json` keyring + `tools/trust.py`
+   (configurable trust set via `PROGENITOR_TRUST_SET`; verify against trusted keys, never the
+   embedded one) + `tools/trust_report.py` (signer + per-gene trust/reputation view); creators sign
+   their genes via `tools/sign_gene.py` → gatekeeper upgrades `trust_state` to `creator-signed:<owner>`;
+   the protocol engine verifies the index against a **keyring** (`PROGENITOR_TRUST_KEYRING[_FILE]`),
+   trust anchor pinned locally. *Deferred:* a real reputation signal (scores are seeded at 0 today).
 3. **Protocol — voluntary adoption + federation:** explicit `discover → inspect → host decides →
    cache` flow (no auto-infect); LAN → optional WAN (IPFS pin / relay).
 4. **Ongoing — honesty in code:** rename `self-evolution` → lifecycle phases; make "memory" a real
