@@ -21,6 +21,7 @@ from typing import Optional
 from urllib import error, request
 from manifest import Parser
 from compass import compass_load_index, compass_resolve_cid_by_name, compass_update_index, _read_capped
+from capability import parse_capability_manifest, run_pure_gene
 
 try:
     from . import stargate_transport
@@ -2355,6 +2356,46 @@ class Phagocyte:
         return "<unknown>"
 
     # ── [第二道防线: 隔离消化舱] ────────────────────
+
+    def express_gene(self, filepath, parameters=None, function_name="main"):
+        """
+        [Gene Contract v2 · 表达通路] 按基因声明的能力边界来表达（执行）它。see docs/VISION.md
+
+        读取基因的能力清单（capability manifest）。`pure` 基因——无环境权限（不碰
+        os/socket/subprocess/文件/网络，禁 dunder 穿透）——在 AST 白名单下进程内执行，
+        **无需任何 opt-in**，其结果以「建议」（advisory）形式返回：是否采纳由宿主 Agent 决定。
+        `effectful` 基因需声明 grants，且仍需显式 PROGENITOR_ALLOW_GENE_EXEC 开关，委托给
+        进程隔离沙箱。引擎从不自动施加基因的副作用——技能只「提议」，宿主才「决定」。
+
+        Returns:
+            pure:      {"status": "proposed"|"rejected"|"error"|"loaded", "advisory": True,
+                        "purity": "pure", "manifest": {...}, "result"/"reason": ...}
+            effectful: execute_gene_in_sandbox 的结果，附加 "purity"/"manifest"/"advisory"。
+        """
+        if parameters is None:
+            parameters = {}
+        try:
+            raw = Path(filepath).read_bytes()
+        except Exception as e:
+            return {"status": "error", "error": f"无法读取基因: {e}"}
+        if len(raw) > 1_000_000:
+            return {"status": "error", "error": "基因文件过大（>1MB），拒绝表达"}
+        code = raw.decode("utf-8", errors="replace")
+        manifest = parse_capability_manifest(code)
+
+        if manifest.get("purity") == "pure":
+            # 安全自证：纯基因无环境权限，直接进程内表达，结果只是建议
+            outcome = run_pure_gene(code, parameters, entry=function_name)
+            outcome["purity"] = "pure"
+            outcome["manifest"] = manifest
+            return outcome
+
+        # effectful：需 grants + 显式 opt-in，委托进程隔离沙箱；结果仍是建议
+        result = self.execute_gene_in_sandbox(filepath, function_name=function_name, parameters=parameters)
+        result["purity"] = "effectful"
+        result["manifest"] = manifest
+        result["advisory"] = True
+        return result
 
     def execute_gene_in_sandbox(self, filepath, function_name="main", parameters=None, timeout_sec=10, max_mem_mb=50):
         """
