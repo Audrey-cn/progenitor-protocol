@@ -115,6 +115,12 @@ In one phrase: **BitTorrent + signatures + self-bootstrap, for agent skills.**
    trust anchor pinned locally. *Deferred:* a real reputation signal (scores are seeded at 0 today).
 3. **Protocol — voluntary adoption + federation:** explicit `discover → inspect → host decides →
    cache` flow (no auto-infect); LAN → optional WAN (IPFS pin / relay).
+   *Status (2026-06-23): adoption ✅ landed* — `hatchery/adoption.py` (`inspect` → `decide` →
+   `adopt`, pure/offline, **never executes**; hard-rejects hash mismatch / invalid signature /
+   flagged reputation; caches content-addressed only on explicit host approval) + `Phagocyte.
+   propose_adoption` / `adopt_gene`. *Remaining:* WAN federation — formalize the transport-hint
+   ladder (registry → github_raw → IPFS → LAN peer) and IPFS pin/relay as an opt-in tier (the
+   multi-path transports + IPFS publish already exist; this is wiring + real-network testing).
 4. **Ongoing — honesty in code:** rename `self-evolution` → lifecycle phases; make "memory" a real
    (small) learned-preference store or keep it labeled "state".
 
