@@ -564,6 +564,9 @@ class CrystallizedPersistence:
     """
     [Crystallized Memory · v2.2] 记忆缝合——攻克 Agent 进程重启导致内存数据丢失。
 
+    诚实说明（见 docs/GLOSSARY.md）：这是**带校验和的状态持久化**（保存/恢复运行时快照），
+    不是「学习到的记忆」、也不是机器学习模型。
+
     将引擎运行时状态（evolution_chronicle、tracker、reflex_log、元数据快照）
     序列化为加密/压缩的 JSON 片段，写入本地文件系统。
 
@@ -1298,6 +1301,10 @@ class EvolutionTracker:
         - 使用次数与相位变化
         - 创新日志记录
         - 进化分数计算
+
+    诚实说明（见 docs/GLOSSARY.md）：``phase`` 完全由 usage_count 阈值推导
+    （mutation<5 → adaptation≥5 → evolution≥5 且有 innovation），是**生命周期阶段标签**；
+    引擎不修改自身代码、也不做机器学习，``score()`` 只是计数加权。
     """
     def __init__(self):
         self.phase = "mutation"
