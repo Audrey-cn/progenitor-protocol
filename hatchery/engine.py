@@ -23,6 +23,7 @@ from manifest import Parser
 from compass import compass_load_index, compass_resolve_cid_by_name, compass_update_index, _read_capped
 from capability import parse_capability_manifest, run_pure_gene
 from adoption import inspect as _adoption_inspect, decide as _adoption_decide, adopt as _adoption_adopt
+import transport as _transport
 
 try:
     from . import stargate_transport
@@ -2497,6 +2498,20 @@ class Phagocyte:
         if cache_dir is None:
             cache_dir = os.path.join(AKASHIC_RUNTIME_DIR, "adopted")
         return _adoption_adopt(proposal, gene_bytes, cache_dir, approved=approved)
+
+    def acquire_gene(self, index_entry, *, base_dir=None, offline=False):
+        """[联邦 · 传输梯子] 按基因的 transport_hints 优先级逐个尝试拉取，并校验 SHA-256；绝不执行。
+
+        内容寻址让任意镜像同等可信（字节经哈希验证），因此传播可以 LAN → WAN 无需中心服务器。
+        offline=True 时只走本地/LAN 通道（registry_path / peer），跳过 WAN（github_raw / ipfs）。
+        返回 transport.resolve_transport 的结果；取回的字节应交给 propose_adoption 让宿主决定。
+        docs/VISION.md。
+        """
+        hints = index_entry.get("transport_hints", [])
+        expected = index_entry.get("content_sha256") or index_entry.get("expected_sha256")
+        allow_types = {"registry_path", "peer"} if offline else None
+        fetcher = _transport.default_fetcher(base_dir=base_dir, gateways=GATEWAY_ARRAY)
+        return _transport.resolve_transport(hints, expected, fetcher, allow_types=allow_types)
 
     def execute_gene_in_sandbox(self, filepath, function_name="main", parameters=None, timeout_sec=10, max_mem_mb=50):
         """
