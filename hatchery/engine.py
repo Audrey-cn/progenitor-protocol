@@ -267,8 +267,60 @@ def compass_sync_index(local_path: str, remote_url: str) -> bool:
         return False
 
 
+def _load_trust_keyring():
+    """Trusted public keys for index-signature verification — the web-of-trust trust anchor
+    (docs/VISION.md, pillar A). The host controls trust; keys are pinned locally and are never
+    fetched from the registry being verified. Sources, merged and deduped:
+      - the resolved registry key (built-in founder, or PROGENITOR_REGISTRY_PUBLIC_KEY) — back-compat;
+      - PROGENITOR_TRUST_KEYRING: a JSON list of public-key dicts or {"public_key": {...}} records;
+      - PROGENITOR_TRUST_KEYRING_FILE: a path to a trusted_keys.json keyring (registry format).
+    With no extra config the keyring is just [founder], i.e. the prior single-key behavior.
+    """
+    keys = [AKASHIC_REGISTRY_PUBLIC_KEY]
+    env_ring = os.environ.get("PROGENITOR_TRUST_KEYRING", "")
+    if env_ring:
+        try:
+            for rec in json.loads(env_ring):
+                pk = rec.get("public_key", rec) if isinstance(rec, dict) else None
+                if pk:
+                    keys.append(pk)
+        except (json.JSONDecodeError, AttributeError):
+            pass
+    ring_file = os.environ.get("PROGENITOR_TRUST_KEYRING_FILE", "")
+    if ring_file and os.path.exists(ring_file):
+        try:
+            data = json.loads(Path(ring_file).read_text(encoding="utf-8"))
+            for rec in data.get("trusted_keys", []):
+                pk = rec.get("public_key")
+                if pk:
+                    keys.append(pk)
+        except Exception:
+            pass
+    seen, uniq = set(), []
+    for k in keys:
+        if not isinstance(k, dict):
+            continue
+        marker = (k.get("n"), k.get("e"))
+        if marker not in seen:
+            seen.add(marker)
+            uniq.append(k)
+    return uniq
+
+
+def _verify_envelope_signature(envelope) -> bool:
+    """True iff any trusted key in the keyring verifies the signed envelope (web-of-trust)."""
+    from stargate_identity import verify_document
+    for pk in _load_trust_keyring():
+        try:
+            if verify_document(envelope, pk):
+                return True
+        except Exception:
+            continue
+    return False
+
+
 def _fetch_and_verify_index_signature(index_bytes: bytes, sig_url: str) -> bool:
-    """[P0] Fetch the registry index signature envelope and verify."""
+    """[P0] Fetch the registry index signature envelope and verify against the trust keyring."""
     try:
         req = request.Request(sig_url)
         with request.urlopen(req, timeout=10) as response:
@@ -278,8 +330,7 @@ def _fetch_and_verify_index_signature(index_bytes: bytes, sig_url: str) -> bool:
         return False
     if envelope.get("schema_version") != "akashic.index-signature/v1":
         return False
-    from stargate_identity import verify_document
-    if not verify_document(envelope, AKASHIC_REGISTRY_PUBLIC_KEY):
+    if not _verify_envelope_signature(envelope):
         return False
     signed_hash = envelope.get("index_sha256", "")
     actual_hash = hashlib.sha256(index_bytes).hexdigest()
