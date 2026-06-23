@@ -118,9 +118,12 @@ In one phrase: **BitTorrent + signatures + self-bootstrap, for agent skills.**
    *Status (2026-06-23): adoption ✅ landed* — `hatchery/adoption.py` (`inspect` → `decide` →
    `adopt`, pure/offline, **never executes**; hard-rejects hash mismatch / invalid signature /
    flagged reputation; caches content-addressed only on explicit host approval) + `Phagocyte.
-   propose_adoption` / `adopt_gene`. *Remaining:* WAN federation — formalize the transport-hint
-   ladder (registry → github_raw → IPFS → LAN peer) and IPFS pin/relay as an opt-in tier (the
-   multi-path transports + IPFS publish already exist; this is wiring + real-network testing).
+   propose_adoption` / `adopt_gene`. Federation core ✅ landed — `hatchery/transport.py`
+   (`resolve_transport`: content-verified transport-hint ladder, priority order with fallback past
+   unavailable/errored/mismatched hints; `offline` mode skips WAN tiers; stdlib file/HTTP/IPFS
+   fetchers that degrade gracefully) + `Phagocyte.acquire_gene` → feeds adoption. Offline-tested via
+   injected fetchers + **real loopback HTTP** + dead-peer→HTTP fallback. *Remaining (needs live
+   infra):* IPFS pin against a real Kubo/pinning daemon + true cross-host WAN propagation.
 4. **Ongoing — honesty in code:** rename `self-evolution` → lifecycle phases; make "memory" a real
    (small) learned-preference store or keep it labeled "state".
    *Status (2026-06-23): ✅ landed (honest-labeling branch)* — [GLOSSARY.md](GLOSSARY.md) pins every
