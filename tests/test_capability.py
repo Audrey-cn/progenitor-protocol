@@ -83,6 +83,23 @@ def test_run_pure_gene_times_out_on_runaway_loop():
     assert out["status"] == "timeout"
 
 
+def test_blocks_operator_attrgetter_dunder_escape():
+    # operator.attrgetter turns a string into attribute access, bypassing the AST dunder check
+    code = "import operator\ndef main():\n    return operator.attrgetter('__globals__')(main)\n"
+    assert cap.run_pure_gene(code)["status"] == "rejected"
+
+
+def test_blocks_operator_rce_chain():
+    # the full escape: string-attr → real __globals__ → real __builtins__ → __import__ → os
+    code = (
+        "import operator, json\n"
+        "def main():\n"
+        "    g = operator.attrgetter('__globals__')(json.dumps)\n"
+        "    return operator.attrgetter('get')(g['__builtins__'])('__import__')('os').getuid()\n"
+    )
+    assert cap.run_pure_gene(code)["status"] == "rejected"
+
+
 # --- manifest parsing ----------------------------------------------------------------------
 
 def test_manifest_parsing_pure_with_grants():

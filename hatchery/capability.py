@@ -16,10 +16,14 @@ import re
 import signal
 
 # Compute-only stdlib a pure gene may import — no I/O, no ambient authority.
+# SECURITY: `operator` is deliberately EXCLUDED. operator.attrgetter / methodcaller turn a
+# *string* into attribute access, which bypasses the AST dunder check entirely — e.g.
+# `operator.attrgetter('__globals__')(json.dumps)['__builtins__']['__import__']('os')` is full
+# RCE that passes a naive node walk. Any module exposing string→attribute access must stay out.
 PURE_SAFE_MODULES = {
     "json", "re", "math", "datetime", "hashlib", "base64", "itertools", "collections",
     "string", "textwrap", "statistics", "decimal", "fractions", "difflib", "bisect",
-    "heapq", "functools", "operator",
+    "heapq", "functools",
 }
 
 # Builtins a pure gene may use — note the absence of eval/exec/open/__import__/getattr/...
