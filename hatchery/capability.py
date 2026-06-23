@@ -13,6 +13,7 @@ from __future__ import annotations
 import ast
 import importlib
 import re
+import signal
 
 # Compute-only stdlib a pure gene may import — no I/O, no ambient authority.
 PURE_SAFE_MODULES = {
@@ -86,24 +87,52 @@ def _pure_builtins():
     return safe
 
 
-def run_pure_gene(code, params=None, *, entry="main"):
+class _PureTimeout(Exception):
+    """Raised when a pure gene exceeds its wall-clock budget."""
+
+
+def run_pure_gene(code, params=None, *, entry="main", timeout_sec=5):
     """Run a pure gene's entry function; return its result as an ADVISORY proposal.
 
     Never performs side effects on the host's behalf — the host agent decides what to do with
-    result["result"]. Refuses if the code is not pure-safe.
+    result["result"]. Refuses if the code is not pure-safe. A wall-clock cap (``timeout_sec``)
+    stops runaway loops; it relies on SIGALRM and so only applies on the main thread of a
+    Unix host — elsewhere it degrades gracefully (no timeout). Memory caps still require the
+    out-of-process sandbox; the allowlist already denies all I/O and ambient authority.
     """
     ok, reason = check_pure_safe(code)
     if not ok:
         return {"status": "rejected", "reason": reason}
     namespace = {"__builtins__": _pure_builtins()}
+
+    def _on_timeout(signum, frame):
+        raise _PureTimeout()
+
+    timer_set = False
+    old_handler = None
     try:
-        exec(compile(code, "<pure-gene>", "exec"), namespace)
-        fn = namespace.get(entry)
-        if not callable(fn):
-            return {"status": "loaded", "reason": f"no callable '{entry}'"}
-        return {"status": "proposed", "advisory": True, "result": fn(**(params or {}))}
-    except Exception as exc:
-        return {"status": "error", "reason": f"{type(exc).__name__}: {exc}"}
+        if timeout_sec and hasattr(signal, "SIGALRM"):
+            try:
+                old_handler = signal.signal(signal.SIGALRM, _on_timeout)
+                signal.setitimer(signal.ITIMER_REAL, timeout_sec)
+                timer_set = True
+            except (ValueError, OSError):
+                timer_set = False  # not on the main thread → run without the cap
+        try:
+            exec(compile(code, "<pure-gene>", "exec"), namespace)
+            fn = namespace.get(entry)
+            if not callable(fn):
+                return {"status": "loaded", "reason": f"no callable '{entry}'"}
+            return {"status": "proposed", "advisory": True, "result": fn(**(params or {}))}
+        except _PureTimeout:
+            return {"status": "timeout", "reason": f"pure gene exceeded {timeout_sec}s"}
+        except Exception as exc:
+            return {"status": "error", "reason": f"{type(exc).__name__}: {exc}"}
+    finally:
+        if timer_set:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            if old_handler is not None:
+                signal.signal(signal.SIGALRM, old_handler)
 
 
 def parse_capability_manifest(header):

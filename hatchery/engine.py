@@ -2357,20 +2357,28 @@ class Phagocyte:
 
     # ── [第二道防线: 隔离消化舱] ────────────────────
 
-    def express_gene(self, filepath, parameters=None, function_name="main"):
+    def express_gene(self, filepath, parameters=None, function_name="main", grants=None):
         """
         [Gene Contract v2 · 表达通路] 按基因声明的能力边界来表达（执行）它。see docs/VISION.md
 
         读取基因的能力清单（capability manifest）。`pure` 基因——无环境权限（不碰
         os/socket/subprocess/文件/网络，禁 dunder 穿透）——在 AST 白名单下进程内执行，
         **无需任何 opt-in**，其结果以「建议」（advisory）形式返回：是否采纳由宿主 Agent 决定。
-        `effectful` 基因需声明 grants，且仍需显式 PROGENITOR_ALLOW_GENE_EXEC 开关，委托给
-        进程隔离沙箱。引擎从不自动施加基因的副作用——技能只「提议」，宿主才「决定」。
+
+        `effectful` 基因须声明 grants（如 ``net:github.com`` / ``fs:write``）。宿主通过
+        ``grants`` 参数传入**已授权的能力集合**：基因声明的每一项 grant 都必须在该集合内，
+        否则拒绝表达（``status="ungranted"``）——这就是「按能力授权」，取代了单一的全局开关。
+        通过授权后再委托给进程隔离沙箱（其底层仍受 PROGENITOR_ALLOW_GENE_EXEC 的操作系统级
+        保护）。``grants=None`` 表示宿主未启用能力授权层（沿用旧的全局门控，向后兼容）。
+        引擎从不自动施加基因的副作用——技能只「提议」，宿主才「决定」。
+
+        Args:
+            grants: 宿主已授权的能力字符串集合；None=不启用授权层（向后兼容）。
 
         Returns:
-            pure:      {"status": "proposed"|"rejected"|"error"|"loaded", "advisory": True,
-                        "purity": "pure", "manifest": {...}, "result"/"reason": ...}
-            effectful: execute_gene_in_sandbox 的结果，附加 "purity"/"manifest"/"advisory"。
+            pure:      {"status": "proposed"|"rejected"|"error"|"loaded", "advisory": True, ...}
+            effectful: 通过授权 → execute_gene_in_sandbox 结果 + "purity"/"manifest"/"advisory"/"granted"；
+                       未授权 → {"status": "ungranted", "missing_grants": [...], "advisory": True, ...}
         """
         if parameters is None:
             parameters = {}
@@ -2390,11 +2398,27 @@ class Phagocyte:
             outcome["manifest"] = manifest
             return outcome
 
-        # effectful：需 grants + 显式 opt-in，委托进程隔离沙箱；结果仍是建议
+        # effectful：按能力授权——基因声明的每项 grant 都须在宿主已授权集合内
+        declared = list(manifest.get("grants", []))
+        if grants is not None:
+            consented = set(grants)
+            missing = [g for g in declared if g not in consented]
+            if missing:
+                return {
+                    "status": "ungranted",
+                    "advisory": True,
+                    "purity": "effectful",
+                    "manifest": manifest,
+                    "missing_grants": missing,
+                    "reason": f"宿主未授权所需能力: {', '.join(missing)}",
+                }
+
+        # 已授权（或未启用授权层）→ 委托进程隔离沙箱；结果仍是建议
         result = self.execute_gene_in_sandbox(filepath, function_name=function_name, parameters=parameters)
         result["purity"] = "effectful"
         result["manifest"] = manifest
         result["advisory"] = True
+        result["granted"] = declared if grants is not None else None
         return result
 
     def execute_gene_in_sandbox(self, filepath, function_name="main", parameters=None, timeout_sec=10, max_mem_mb=50):
