@@ -22,6 +22,7 @@ from urllib import error, request
 from manifest import Parser
 from compass import compass_load_index, compass_resolve_cid_by_name, compass_update_index, _read_capped
 from capability import parse_capability_manifest, run_pure_gene
+from adoption import inspect as _adoption_inspect, decide as _adoption_decide, adopt as _adoption_adopt
 
 try:
     from . import stargate_transport
@@ -2471,6 +2472,24 @@ class Phagocyte:
         result["advisory"] = True
         result["granted"] = declared if grants is not None else None
         return result
+
+    def propose_adoption(self, gene_bytes, *, capability=None, index_entry=None, source=None,
+                         require_pure=False, reputation=None):
+        """[Gene Contract v2 · 自愿采纳] inspect + decide：给宿主一份采纳建议，**绝不执行、绝不自动缓存**。
+
+        组合三柱：内容寻址校验 + provenance(trust_state) + 能力边界(purity/grants)。
+        返回 {"proposal": {...}, "recommendation": {"recommend": adopt|ask|reject, "reasons": [...]}}。
+        是否采纳由宿主（Agent + 人）决定——见 adopt_gene。docs/VISION.md 柱子 C。
+        """
+        proposal = _adoption_inspect(gene_bytes, capability=capability, index_entry=index_entry, source=source)
+        recommendation = _adoption_decide(proposal, require_pure=require_pure, reputation=reputation)
+        return {"proposal": proposal, "recommendation": recommendation}
+
+    def adopt_gene(self, proposal, gene_bytes, *, approved, cache_dir=None):
+        """[Gene Contract v2 · 自愿采纳] 仅在宿主**显式批准**时，按内容寻址把基因写入本地缓存；绝不执行。"""
+        if cache_dir is None:
+            cache_dir = os.path.join(AKASHIC_RUNTIME_DIR, "adopted")
+        return _adoption_adopt(proposal, gene_bytes, cache_dir, approved=approved)
 
     def execute_gene_in_sandbox(self, filepath, function_name="main", parameters=None, timeout_sec=10, max_mem_mb=50):
         """
