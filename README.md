@@ -275,6 +275,7 @@ cd hatchery && python3 incubator.py
 | [Hatchery G017 Self-Replicate Gene](docs/G017_HATCHERY_SELF_REPLICATE.md) | How G017 enables autonomous hatchery reconstitution via Plan A (GitHub pull) and Plan B (embedded payload extraction) |
 | [Activation Path Lv.0→Lv.4](docs/ACTIVATION_PATH.md) | The gamified onboarding funnel — each stage asks once, then never bothers again |
 | [AGENTS.md](docs/AGENTS.md) | Agent Operation Manual — the core directives for Progenitor agents |
+| [Vision](docs/VISION.md) | **The north star** — corrected direction, the three pillars, and the Gene Contract v2 design |
 | [Roadmap](docs/ROADMAP.md) | Honest status (done / partial / not-started) + prioritized next steps |
 | [Engineering Review](docs/REVIEW.md) | Evidence-based review — capability maturity, findings, and direction |
 | [Changelog](CHANGELOG.md) | Version history and release notes |

@@ -3,6 +3,9 @@
 Honest status + next steps, derived from the [2026-06-19 review](REVIEW.md). Tags:
 ✅ done · ⚠️ partial/label-only · 🚧 not started.
 
+> **North star:** [VISION.md](VISION.md) — the corrected direction (frictionless propagation +
+> verifiable provenance + scoped execution + voluntary adoption). Everything below serves it.
+
 ## Vision
 
 A portable, zero-dependency capability layer you inject into any AI coding agent via one
@@ -42,11 +45,17 @@ package-manager-plus-sandbox for AI-agent skills.
 3. ✅ Security tests now exercise **real product code** (F007): `test_crucible_security` →
    `engine.Crucible`; `test_gatekeeper` + `test_gene_lifecycle` → real `gatekeeper.py`;
    `test_spore_propagation` → `engine.SporeDaemon`.
-4. 🚧 Sign the registry index, so F005's hash check can't be subverted by a tampered index.
+4. ✅ Sign the registry index — DONE 2026-06-21: `.akashic_index.json.sig` produced by
+   `sign_index.py`, verified by engine (`_compass_resolve` + `_fetch_and_verify_index_signature`)
+   and tools (`verify_index_signature`); default mode is `strict`. (F006 closed.)
 
-**P1 — make the headline real or drop it**
-4. 🚧 Either build a real **LLM bridge** (text → vetted code) behind `self._llm_bridge`, or
-   keep "absorb-from-knowledge" labeled not-implemented and stop implying it works (F003).
+**P1 — make the headline real or drop it**  
+4. ✅ Honest LLM bridge — DONE 2026-06-21: removed dead stub code
+   (`_llm_bridge_translate_stub`, `_llm_bridge_repair_stub`). Replaced with clean
+   `register_llm_bridge(translate_fn, repair_fn=None)` extension point.
+   `phagocytize_and_evolve` returns `not_implemented` by default. 6 new tests.
+   (F003 closed.) The feature is honestly documented as 🚧 not-implemented everywhere;
+   hosts can wire a real LLM bridge via the extension point if needed.
 5. ⚠️ "Self-evolution": make it do something real, or rename to "lifecycle phases" everywhere.
 
 **P2 — the distributed vision**
@@ -54,8 +63,10 @@ package-manager-plus-sandbox for AI-agent skills.
 7. ⏳ Split the 6,200-line `engine.py` into modules (`RUNTIME_AND_BUILD_PLAN.md`).
    ✅ **Step 1:** CI + `tools/release_check.sh` gate every change (exit-criterion #1).
    ✅ **Step 2:** `inline_sibling_modules` bundler in incubator registers source modules in
-   `sys.modules` so the seed stays self-contained; first leaf extracted — `Parser` →
-   `hatchery/manifest.py` (engine −148 lines), verified green + still activates from `/tmp`.
+   `sys.modules` so the seed stays self-contained; two leaves extracted:
+   - `Parser` → `hatchery/manifest.py` (engine −148 lines)
+   - `compass_*` + `_read_capped` → `hatchery/compass.py` (engine −58 lines, 2026-06-21)
+   Verified green + still activates from `/tmp`. Release check passes.
    🚧 **Remaining:** a few more clean leaves can move the same way (e.g. genesis/rosetta
    helpers, compass index helpers). The core classes (`Crucible` / `Progenitor` / `Phagocyte`
    / `ingest`) are mutually entangled and need real untangling first — do it leaf-by-leaf
