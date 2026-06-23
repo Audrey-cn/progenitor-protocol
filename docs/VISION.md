@@ -98,12 +98,13 @@ In one phrase: **BitTorrent + signatures + self-bootstrap, for agent skills.**
 1. **Keystone · Protocol — Gene Contract v2:** capability manifest + pure/advisory execution +
    AST-allowlist sandbox; per-capability grants replace the global exec gate. Tests: pure gene
    runs but can't touch fs/net; effectful refused without grant; escape payloads blocked.
-   *Status (2026-06-23): core landed* — `hatchery/capability.py` (manifest + `check_pure_safe`
-   AST allowlist + advisory `run_pure_gene`); `Phagocyte.express_gene` routes by declared purity
-   (pure runs with no opt-in, effectful stays gated); registry **L6** rejects genes that claim
-   `purity: pure` but violate the allowlist (two repos converged on the contract). *Remaining:*
-   per-capability grant consent for effectful genes (replacing the single global exec gate), and
-   resource caps on the in-process pure path.
+   *Status (2026-06-23): ✅ landed* — `hatchery/capability.py` (manifest + `check_pure_safe`
+   AST allowlist + advisory `run_pure_gene` with a SIGALRM wall-clock cap); `Phagocyte.express_gene`
+   routes by declared purity (pure runs with no opt-in; effectful requires per-capability grant
+   consent via `grants=...`, else `ungranted`); registry **L6** rejects genes that claim
+   `purity: pure` but violate the allowlist (the two repos are converged on the contract).
+   *Deferred hardening:* memory caps on the pure path need the out-of-process sandbox (the
+   allowlist already denies all I/O); real OS/wasm isolation remains future work for effectful genes.
 2. **Registry — web-of-trust provenance:** per-creator signing (not only the founder) + a
    configurable trust set; surface reputation from `.gene_score_log`. Makes the ledger truly collective.
 3. **Protocol — voluntary adoption + federation:** explicit `discover → inspect → host decides →
