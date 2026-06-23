@@ -400,6 +400,77 @@ def verify_index(index: dict) -> list[dict]:
     return issues
 
 
+def load_registry_public_key() -> dict | None:
+    """[P0] Load the registry public key from env or fall back to the default."""
+    env_val = os.environ.get("PROGENITOR_REGISTRY_PUBLIC_KEY", "")
+    if env_val:
+        try:
+            return json.loads(env_val)
+        except json.JSONDecodeError:
+            pass
+    # Default public key — hard-coded for the official progenitor-registry
+    return {
+        "key_type": "progenitor-rsa-sha256-v1",
+        "n": "xsGf15m3fq0Ox4meCgG2BPAMCvkO39rttv6H79vIgpkMh6Z_TrRQyc8V4HBlSVJHBfItvHbMVZxw645lEorOX2lfu4URA5Z4HkvfKikgEeiOWMaAANaoTwuah8ys0MydmM50z7609QGLx4VWLAvWe5RfCy_PCwr61hFriWKl4q0",
+        "e": 65537,
+    }
+
+
+def verify_index_signature(index_path: Path | None = None) -> list[dict]:
+    """[P0] Verify the cryptographic signature on .akashic_index.json.
+
+    Returns a list of issues (empty = signature valid).
+    An ``index_path`` pointing to the index is required; the ``.sig`` file must
+    sit next to it. If no path is given, the default ``INDEX_FILE`` is used.
+    """
+    index_path = index_path or INDEX_FILE
+    sig_path = index_path.with_suffix(index_path.suffix + ".sig")
+    issues = []
+
+    if not sig_path.exists():
+        issues.append({"name": "index-signature", "level": "error",
+                       "reason": f"signature file missing: {sig_path}"})
+        return issues
+
+    if not index_path.exists():
+        issues.append({"name": "index-signature", "level": "error",
+                       "reason": f"index file missing: {index_path}"})
+        return issues
+
+    try:
+        envelope = json.loads(sig_path.read_text(encoding="utf-8-sig"))
+    except (json.JSONDecodeError, OSError) as exc:
+        issues.append({"name": "index-signature", "level": "error",
+                       "reason": f"sig read error: {exc}"})
+        return issues
+
+    if envelope.get("schema_version") != "akashic.index-signature/v1":
+        issues.append({"name": "index-signature", "level": "error",
+                       "reason": "unknown schema_version"})
+        return issues
+
+    public_key = load_registry_public_key()
+    if not public_key:
+        issues.append({"name": "index-signature", "level": "error",
+                       "reason": "no registry public key configured"})
+        return issues
+
+    from stargate_identity import verify_document
+    if not verify_document(envelope, public_key):
+        issues.append({"name": "index-signature", "level": "error",
+                       "reason": "cryptographic signature invalid"})
+        return issues
+
+    # Verify the signed hash matches the actual index
+    signed_hash = envelope.get("index_sha256", "")
+    actual_hash = hashlib.sha256(index_path.read_bytes()).hexdigest()
+    if signed_hash != actual_hash:
+        issues.append({"name": "index-signature", "level": "error",
+                       "reason": f"index_sha256 mismatch: signed={signed_hash[:16]}... actual={actual_hash[:16]}..."})
+
+    return issues
+
+
 def fetch_local_registry(entry: dict) -> tuple[str, bytes] | None:
     registry_path = entry.get("registry_path")
     if not registry_path:
@@ -631,6 +702,8 @@ def main() -> int:
     if args.command == "verify-index":
         index = normalize_index(load_index())
         issues = verify_index(index)
+        sig_issues = verify_index_signature()
+        issues.extend(sig_issues)
         print(f"verified {len(index)} entries; issues={len(issues)}")
         for issue in issues[:20]:
             print(f"{issue['level']}: {issue['name']}: {issue['reason']}")
@@ -710,6 +783,8 @@ def main() -> int:
     if args.command == "health":
         index = normalize_index(load_index())
         issues = verify_index(index)
+        sig_issues = verify_index_signature()
+        issues.extend(sig_issues)
         path = write_health_report(index, issues)
         print(f"wrote {path}")
         print(f"status={'ok' if not issues else 'degraded'} capabilities={len(index)} issues={len(issues)}")

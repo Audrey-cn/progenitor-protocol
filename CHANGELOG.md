@@ -4,6 +4,32 @@ Release record for Progenitor Protocol. Dates are authoritative. The engine's in
 `protocol_version` (currently **2.6**, in `hatchery/metadata.yaml`) is a separate schema
 number used for gene-compatibility migrations — not a product release version.
 
+## 2026-06-21 — P0 + P1: index signing & LLM bridge honesty
+
+### P0: Registry index signing (F006)
+- **Signed the registry index** to close F006 (unauthenticated remote index). The
+  `.akashic_index.json.sig` envelope is now produced by `progenitor-registry/tools/sign_index.py`
+  using the same RSA-SHA256 scheme as peer manifests (`stargate_identity`), committed
+  alongside the index, and verified by the engine **before** the index is trusted.
+- **Protocol side:** added `_fetch_and_verify_index_signature()` and
+  `_should_verify_index_signature()` to `engine.py`; `_compass_resolve()` now fetches and
+  verifies `.sig` after downloading the index, refusing in strict mode (default).
+- **Tools side:** added `verify_index_signature()` and `load_registry_public_key()` to
+  `stargate_resolver.py`; wired into `verify-index` and `health` CLI commands.
+- **Config:** `PROGENITOR_INDEX_SIGNATURE_MODE` (default `strict`), `PROGENITOR_REGISTRY_PUBLIC_KEY`
+  (env-var override), with a hard-coded default public key.
+- **Registry:** public key published at `policy/registry_public_key.json`.
+- **Tests:** 7 new signature-verification tests.
+
+### P1: LLM bridge honesty (F003)
+- **Removed dead stub code:** `_llm_bridge_translate_stub` and `_llm_bridge_repair_stub`
+  that returned canned self-passing code and printed "Simulated Execution".
+- **Added clean extension point:** `Phagocyte.register_llm_bridge(translate_fn, repair_fn=None)`
+  so a host Agent can wire a real text→code translation callable.
+- `phagocytize_and_evolve` now returns `not_implemented` by default (was already honest
+  since the 6/19 pass; this round removed the dead code and added the registration API).
+- **Tests:** 6 new LLM bridge tests. Protocol 76 tests green.
+
 ## 2026-06-20 — Self-bootstrap install fixed
 
 - The headline install was a **no-op**: the executable bootstrap re-read already-consumed

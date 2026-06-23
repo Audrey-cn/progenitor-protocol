@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Optional
 from urllib import error, request
 from manifest import Parser
+from compass import compass_load_index, compass_resolve_cid_by_name, compass_update_index, _read_capped
 
 try:
     from . import stargate_transport
@@ -176,6 +177,23 @@ AKASHIC_SIGNER_FINGERPRINTS = (
 AKASHIC_SIGNATURE_MODE = os.environ.get("PROGENITOR_SIGNATURE_MODE", "optional")
 AKASHIC_SIGNATURE_REQUIRED = AKASHIC_SIGNATURE_MODE in {"required", "strict"}
 
+# [P0] Registry index signature verification — prevents index tampering (F006)
+AKASHIC_INDEX_SIGNATURE_MODE = os.environ.get("PROGENITOR_INDEX_SIGNATURE_MODE", "strict")
+AKASHIC_INDEX_SIGNATURE_REQUIRED = AKASHIC_INDEX_SIGNATURE_MODE in {"required", "strict"}
+_AKASHIC_REGISTRY_PUBLIC_KEY_DEFAULT = {
+    "key_type": "progenitor-rsa-sha256-v1",
+    "n": "xsGf15m3fq0Ox4meCgG2BPAMCvkO39rttv6H79vIgpkMh6Z_TrRQyc8V4HBlSVJHBfItvHbMVZxw645lEorOX2lfu4URA5Z4HkvfKikgEeiOWMaAANaoTwuah8ys0MydmM50z7609QGLx4VWLAvWe5RfCy_PCwr61hFriWKl4q0",
+    "e": 65537,
+}
+_registry_pk_env = os.environ.get("PROGENITOR_REGISTRY_PUBLIC_KEY", "")
+if _registry_pk_env:
+    try:
+        AKASHIC_REGISTRY_PUBLIC_KEY = json.loads(_registry_pk_env)
+    except json.JSONDecodeError:
+        AKASHIC_REGISTRY_PUBLIC_KEY = _AKASHIC_REGISTRY_PUBLIC_KEY_DEFAULT
+else:
+    AKASHIC_REGISTRY_PUBLIC_KEY = _AKASHIC_REGISTRY_PUBLIC_KEY_DEFAULT
+
 AKASHIC_GPG_HOMEDIR = os.environ.get("PROGENITOR_GPG_HOMEDIR", os.path.expanduser("~/.gnupg"))
 
 AKASHIC_QUARANTINE_DIR = os.environ.get(
@@ -220,51 +238,16 @@ REJECTED_AUDIT_LOG = AKASHIC_REJECTED_AUDIT_LOG
 #  提供语义标签到 CID 的解析功能
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def compass_load_index(index_path: str) -> dict:
-    """
-    加载阿卡夏索引文件。
-    """
-    try:
-        with open(index_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (json.JSONDecodeError, IOError):
-        return {}
 
 
-def compass_resolve_cid_by_name(name: str, index_data: dict) -> Optional[str]:
-    """
-    通过语义标签解析对应的 CID。
-    """
-    entries = index_data.get("entries", {})
-    if name in entries:
-        return entries[name].get("cid")
-    for key, value in entries.items():
-        if name.lower() in key.lower() or key.lower() in name.lower():
-            return value.get("cid")
-    return None
 
 
-def compass_update_index(index_path: str, updates: dict):
-    """
-    更新索引文件。
-    """
-    existing = compass_load_index(index_path)
-    existing.update(updates)
-    os.makedirs(os.path.dirname(index_path), exist_ok=True)
-    with open(index_path, 'w', encoding='utf-8') as f:
-        json.dump(existing, f, indent=2, ensure_ascii=False)
 
 
 MAX_GENE_BYTES = int(os.environ.get("PROGENITOR_MAX_GENE_BYTES", str(8 * 1024 * 1024)))
 MAX_INDEX_BYTES = int(os.environ.get("PROGENITOR_MAX_INDEX_BYTES", str(16 * 1024 * 1024)))
 
 
-def _read_capped(response, limit):
-    """[F004] Read at most ``limit`` bytes; raise if the body exceeds it (DoS guard)."""
-    data = response.read(limit + 1)
-    if len(data) > limit:
-        raise RuntimeError(f"response exceeds {limit} bytes — refusing (possible DoS)")
-    return data
 
 
 def compass_sync_index(local_path: str, remote_url: str) -> bool:
@@ -281,6 +264,30 @@ def compass_sync_index(local_path: str, remote_url: str) -> bool:
         return True
     except (IOError, OSError):
         return False
+
+
+def _fetch_and_verify_index_signature(index_bytes: bytes, sig_url: str) -> bool:
+    """[P0] Fetch the registry index signature envelope and verify."""
+    try:
+        req = request.Request(sig_url)
+        with request.urlopen(req, timeout=10) as response:
+            sig_bytes = _read_capped(response, MAX_INDEX_BYTES).decode('utf-8')
+        envelope = json.loads(sig_bytes)
+    except Exception:
+        return False
+    if envelope.get("schema_version") != "akashic.index-signature/v1":
+        return False
+    from stargate_identity import verify_document
+    if not verify_document(envelope, AKASHIC_REGISTRY_PUBLIC_KEY):
+        return False
+    signed_hash = envelope.get("index_sha256", "")
+    actual_hash = hashlib.sha256(index_bytes).hexdigest()
+    return signed_hash == actual_hash
+
+
+def _should_verify_index_signature() -> bool:
+    """Return True when index signature verification is configured."""
+    return AKASHIC_INDEX_SIGNATURE_MODE != "off"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2184,7 +2191,26 @@ class Phagocyte:
                     headers={"User-Agent": "G010-compass/2.4"}
                 )
                 with urllib.request.urlopen(req, timeout=self._FETCH_TIMEOUT) as resp:
-                    ri = json.loads(_read_capped(resp, MAX_INDEX_BYTES).decode("utf-8"))
+                    _raw_index_bytes = _read_capped(resp, MAX_INDEX_BYTES)
+                    ri = json.loads(_raw_index_bytes.decode("utf-8"))
+
+                # [P0] Verify registry index signature before trusting it
+                if _should_verify_index_signature() and isinstance(ri, dict):
+                    sig_url = registry_index_url.rstrip("/") + ".sig"
+                    if not _fetch_and_verify_index_signature(_raw_index_bytes, sig_url):
+                        _mode = AKASHIC_INDEX_SIGNATURE_MODE
+                        print(f"   💀 [罗盘校准] 索引签名验证失败——星图可能被篡改！\n     签名模式: {_mode}\n     签名 URL: {sig_url}")
+                        if AKASHIC_INDEX_SIGNATURE_REQUIRED:
+                            print("     时间线坍缩——拒绝使用未签名或签名无效的罗盘索引。")
+                            raise RuntimeError(
+                                f"Registry index signature verification failed "
+                                f"(mode={_mode}). Set PROGENITOR_INDEX_SIGNATURE_MODE=off "
+                                f"to bypass at your own risk."
+                            )
+                        print(f"     签名模式为 '{_mode}'，继续使用未验证的索引。")
+                        if capability_name in index:
+                            return self._compass_resolve(capability_name, force_refresh=False)
+
                 if isinstance(ri, dict):
                     index.update(ri)
                     Path(index_path).parent.mkdir(parents=True, exist_ok=True)
@@ -2516,11 +2542,17 @@ class Phagocyte:
             except ApoptosisException as e:
                 print(f"\u26d4 [端粒凋亡] 第{attempt+1}次试错触发凋亡: {e}")
                 last_error = str(e)
-                translated_python_code = self._llm_bridge_repair_stub(translated_python_code, str(e))
+                if callable(getattr(self, "_llm_bridge_repair", None)):
+                    translated_python_code = self._llm_bridge_repair(translated_python_code, str(e))
+                else:
+                    raise
             except Exception as e:
                 print(f"\U0001f9ec [自噬修复] 第{attempt+1}次异常，尝试自我修复...")
                 last_error = str(e)
-                translated_python_code = self._llm_bridge_repair_stub(translated_python_code, str(e))
+                if callable(getattr(self, "_llm_bridge_repair", None)):
+                    translated_python_code = self._llm_bridge_repair(translated_python_code, str(e))
+                else:
+                    raise
 
         if not succeeded:
             raise ApoptosisException(f"沙盒试错坍缩: 三次试错全部凋亡，原因: {last_error}")
@@ -2570,42 +2602,43 @@ class Phagocyte:
         }
 
     def _llm_bridge_available(self) -> bool:
-        """Whether a REAL LLM bridge (text -> executable code) is wired up.
+        """
+        [LLM Bridge · Extension Point] Whether a real text→code translation bridge
+        is registered.
 
-        False in this build: _llm_bridge_translate_stub is a placeholder that emits
-        self-passing stub code. A host may set self._llm_bridge to a real callable to
-        enable text->code absorption; until then phagocytize_and_evolve reports
-        not_implemented instead of faking success.
+        By default no bridge is wired: ``register_llm_bridge(callable)`` must be
+        called first. Until a bridge is registered, ``phagocytize_and_evolve``
+        correctly returns ``not_implemented`` instead of faking success.
+
+        A host Agent can wire a real LLM bridge like::
+
+            progenitor.phagocyte.register_llm_bridge(lambda text: generated_code)
+
+        The bridge receives raw text (or a URL body) and must return a Python
+        function definition string. The returned code is audited through the
+        lysosome denylist before execution.
         """
         return callable(getattr(self, "_llm_bridge", None))
 
-    def _llm_bridge_translate_stub(self, data: str) -> str:
+    def register_llm_bridge(self, translate_fn, repair_fn=None) -> None:
         """
-        [LLM Bridge · 翻译预留] 将外部非结构化数据翻译为 Python 可执行逻辑。
+        Register a real text→code translation callable (and optional repair callable).
 
-        未来：调用宿主 LLM API (OpenAI / Anthropic)，
-        prompt 要求生成纯 Python 函数，无外部导入。
+        Args:
+            translate_fn: A callable that accepts a ``str`` (raw text or URL body) and
+                          returns a ``str`` of Python code (a function definition).
+            repair_fn: Optional callable(code_candidate, error_message) -> str for
+                       self-repair attempts. If None, repair is skipped on failure.
 
-        当前：返回沙盒兼容的验证存根代码。
+        Example:
+            >>> progenitor.phagocyte.register_llm_bridge(
+            ...     lambda text: host_llm_chat("Generate a Python function from: " + text)
+            ... )
+            >>> progenitor.phagocyte.phagocytize_and_evolve(sop_text, target_type="raw")
         """
-        safe_name = hashlib.sha256(data.encode()).hexdigest()[:8]
-        payload = data[:80].replace("\n", " ").replace('"', "'")
-        return (
-            f'_extracted = "{payload}"\n'
-            f'def verify(): return True\n'
-            f'result = {{"digest": "_llm_bridge_stub", "safe_id": "{safe_name}", "extracted_len": {len(data)}}}\n'
-            f'print("Simulated Execution")\n'
-        )
-
-    def _llm_bridge_repair_stub(self, code_candidate: str, error_message: str) -> str:
-        """
-        [LLM Bridge · 自修复预留] 将异常信息反馈给 LLM，请求修正后的代码。
-        """
-        return (
-            'def verify(): return True\n'
-            f'result = {{"repaired": True, "previous_error": "{error_message[:60]}", "status": "stub_repair"}}\n'
-            f'print("Simulated Repair Execution")\n'
-        )
+        self._llm_bridge = translate_fn
+        if repair_fn is not None:
+            self._llm_bridge_repair = repair_fn
 
     def _extract_variant_name(self, external_target: str) -> str:
         """
