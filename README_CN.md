@@ -256,6 +256,7 @@ cd hatchery && python3 incubator.py
 | [愿景 Vision](docs/VISION.md) | **北极星**——修正后的方向、三根柱子、Gene Contract v2 设计 |
 | [路线图 Roadmap](docs/ROADMAP.md) | 诚实状态（已完成/部分/未开始）+ 优先级下一步 |
 | [工程评审 Review](docs/REVIEW.md) | 证据化评审——能力成熟度、发现、方向 |
+| [术语表 Glossary](docs/GLOSSARY.md) | 隐喻 ↔ 机制——每个生物学术语背后代码到底做了什么（诚实规格） |
 | [更新日志 Changelog](CHANGELOG.md) | 版本历史与发布说明 |
 
 ---

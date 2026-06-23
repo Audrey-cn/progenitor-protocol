@@ -278,6 +278,7 @@ cd hatchery && python3 incubator.py
 | [Vision](docs/VISION.md) | **The north star** — corrected direction, the three pillars, and the Gene Contract v2 design |
 | [Roadmap](docs/ROADMAP.md) | Honest status (done / partial / not-started) + prioritized next steps |
 | [Engineering Review](docs/REVIEW.md) | Evidence-based review — capability maturity, findings, and direction |
+| [Glossary](docs/GLOSSARY.md) | Metaphor ↔ mechanism — what each biological term actually does (honest spec) |
 | [Changelog](CHANGELOG.md) | Version history and release notes |
 
 ---
