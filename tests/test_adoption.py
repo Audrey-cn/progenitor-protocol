@@ -67,6 +67,27 @@ def test_decide_asks_for_untrusted_provenance():
     assert adoption.decide(p)["recommend"] == "ask"
 
 
+def test_decide_never_adopts_effectful_with_zero_grants():
+    # a dangerous effectful gene declaring no grants must NOT score 'adopt' (it can have side effects)
+    gene = b"# purity: effectful\ndef main():\n    return 1\n"
+    p = adoption.inspect(gene, index_entry=_entry_for(gene))  # trusted + hash-verified
+    out = adoption.decide(p)
+    assert out["recommend"] == "ask"
+    assert any("effectful" in r for r in out["reasons"])
+
+
+def test_decide_does_not_overtrust_creator_signed_suffix():
+    # 'creator-signed-fake' must not satisfy the creator-signed: trust prefix
+    p = adoption.inspect(PURE_GENE, index_entry=_entry_for(PURE_GENE, trust_state="creator-signed-fake"))
+    assert adoption.decide(p)["recommend"] == "ask"
+
+
+def test_decide_asks_when_hash_unverified():
+    p = adoption.inspect(PURE_GENE, source="peer://x")  # no index_entry, no expected hash
+    assert p["hash_verified"] is None
+    assert adoption.decide(p)["recommend"] == "ask"
+
+
 # --- adopt (host decides; never executes) --------------------------------------------------
 
 def test_adopt_refused_without_approval(tmp_path):

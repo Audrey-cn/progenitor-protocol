@@ -60,17 +60,22 @@ def decide(proposal, *, require_pure=False, reputation=None):
         return {"recommend": "reject", "reasons": ["capability is flagged in the reputation log"]}
 
     reasons = []
-    trusted = ts.startswith("creator-signed") or ts in TRUSTED_PROVENANCE
+    if proposal.get("hash_verified") is None:
+        reasons.append("content hash was not verified against an advertised hash")
+    # creator-signed:<owner> requires the colon — never prefix-match 'creator-signed-…' suffixes
+    trusted = ts.startswith("creator-signed:") or ts in TRUSTED_PROVENANCE
     if not trusted:
         reasons.append(f"provenance '{ts or 'unknown'}' is not trusted")
-    if require_pure and proposal.get("purity") != "pure":
-        reasons.append("policy requires pure genes; this one is effectful")
-    if proposal.get("purity") != "pure" and proposal.get("grants"):
-        reasons.append("effectful — requests grants: " + ", ".join(proposal["grants"]))
+    if proposal.get("purity") != "pure":
+        # effectful genes can cause side effects regardless of how many grants they declare —
+        # they always warrant explicit host attention and must never silently 'adopt'
+        grants = proposal.get("grants") or []
+        reasons.append("effectful" + (" — requests grants: " + ", ".join(grants) if grants else " — undeclared side effects"))
+        if require_pure:
+            reasons.append("policy requires pure genes")
     if reasons:
         return {"recommend": "ask", "reasons": reasons}
-    note = "trusted provenance" + (", pure" if proposal.get("purity") == "pure" else "")
-    return {"recommend": "adopt", "reasons": [note]}
+    return {"recommend": "adopt", "reasons": ["trusted provenance, pure, hash-verified"]}
 
 
 def adopt(proposal, gene_bytes, cache_dir, *, approved):

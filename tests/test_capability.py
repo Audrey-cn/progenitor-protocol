@@ -89,6 +89,24 @@ def test_blocks_operator_attrgetter_dunder_escape():
     assert cap.run_pure_gene(code)["status"] == "rejected"
 
 
+def test_blocks_string_formatter_rce_chain():
+    # string.Formatter.get_field expresses dunder access as string literals → bypasses the AST
+    # dunder check and reaches real builtins. Closed by dropping 'string' from PURE_SAFE_MODULES.
+    code = (
+        "import string, json\n"
+        "def main():\n"
+        "    g = string.Formatter().get_field('0.__globals__', [json.dumps], {})[0]\n"
+        "    return g['__builtins__']['__import__']('os').getuid()\n"
+    )
+    assert cap.run_pure_gene(code)["status"] == "rejected"
+
+
+def test_pure_gene_has_no_print_io():
+    # 'no I/O' must be literally true — print writes to stdout
+    out = cap.run_pure_gene("def main():\n    print('x')\n    return 1\n")
+    assert out["status"] == "error"  # NameError: print is not in the curated builtins
+
+
 def test_blocks_operator_rce_chain():
     # the full escape: string-attr → real __globals__ → real __builtins__ → __import__ → os
     code = (

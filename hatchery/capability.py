@@ -7,6 +7,13 @@ and a whitelist of compute-only stdlib modules. Its output is ADVISORY: run_pure
 a proposal and never performs side effects on the host's behalf; the host agent decides whether
 to act on it. This turns "sandbox arbitrary untrusted code" (unsolvable) into "run a declared,
 authority-free function" (solvable).
+
+SECURITY HONESTY: the AST allowlist + curated builtins are a STRONG PRE-FILTER, not a guaranteed
+boundary. In-process CPython sandboxing is famously porous — any allowlisted module that turns a
+string into attribute/field access (e.g. operator.attrgetter, string.Formatter.get_field) re-opens
+an escape to the real builtins, so the allowlist must be kept tight and is defense-in-depth. For
+genuinely untrusted sources, run pure genes out-of-process too (subprocess + resource caps, and
+ideally OS isolation: seccomp/landlock/namespaces or wasm) — that is the real boundary.
 """
 from __future__ import annotations
 
@@ -16,22 +23,25 @@ import re
 import signal
 
 # Compute-only stdlib a pure gene may import — no I/O, no ambient authority.
-# SECURITY: `operator` is deliberately EXCLUDED. operator.attrgetter / methodcaller turn a
-# *string* into attribute access, which bypasses the AST dunder check entirely — e.g.
-# `operator.attrgetter('__globals__')(json.dumps)['__builtins__']['__import__']('os')` is full
-# RCE that passes a naive node walk. Any module exposing string→attribute access must stay out.
+# SECURITY: any module that turns a *string* into attribute/field access bypasses the AST
+# dunder check (the dunder name never appears as an ast.Attribute node) and is full RCE:
+#   - `operator` (attrgetter/methodcaller):  operator.attrgetter('__globals__')(json.dumps)...
+#   - `string`   (Formatter.get_field/vformat): string.Formatter().get_field('0.__globals__', [json.dumps], {})...
+# Both reach a real frame's __globals__ → real __builtins__ → __import__. They are EXCLUDED and
+# must never be re-added. Treat this allowlist as a strong pre-filter, NOT a hard boundary.
 PURE_SAFE_MODULES = {
     "json", "re", "math", "datetime", "hashlib", "base64", "itertools", "collections",
-    "string", "textwrap", "statistics", "decimal", "fractions", "difflib", "bisect",
+    "textwrap", "statistics", "decimal", "fractions", "difflib", "bisect",
     "heapq", "functools",
 }
 
 # Builtins a pure gene may use — note the absence of eval/exec/open/__import__/getattr/...
+# `print` is also excluded: a pure gene returns a value, and stdout writes are I/O.
 PURE_SAFE_BUILTINS = {
     "abs", "all", "any", "ascii", "bin", "bool", "bytearray", "bytes", "chr", "complex",
     "dict", "divmod", "enumerate", "filter", "float", "format", "frozenset", "hash", "hex",
     "int", "isinstance", "issubclass", "iter", "len", "list", "map", "max", "min", "next",
-    "oct", "ord", "pow", "print", "range", "repr", "reversed", "round", "set", "slice",
+    "oct", "ord", "pow", "range", "repr", "reversed", "round", "set", "slice",
     "sorted", "str", "sum", "tuple", "zip",
 }
 
