@@ -57,6 +57,76 @@ def test_passive_beacon_ack_uses_actual_gateway_port(tmp_path):
         beacon.stop()
 
 
+def test_beacon_discovery_marks_id_unverified(tmp_path):
+    udp_port = _free_port()
+    gateway_port = _free_port()
+    beacon = engine.PassiveBeacon(port=udp_port, gateway_port=gateway_port, node_id="claimed-id")
+    try:
+        assert beacon.start()["status"] == "beacon_started"
+        result = {"peers": []}
+        for _ in range(20):
+            result = stargate_resolver.beacon_scan(timeout=0.2, udp_port=udp_port, target_host="127.0.0.1", register=False)
+            if result["peers"]:
+                break
+            time.sleep(0.05)
+        assert result["peers"]
+        # a beacon node_id is only a claim until the signed handshake binds it
+        assert result["peers"][0]["id_verified"] is False
+    finally:
+        beacon.stop()
+
+
+def test_handshake_binds_beacon_claimed_id(tmp_path):
+    gene_path = tmp_path / "bind_gene.pgn"
+    gene_path.write_bytes(b"# life_id: PGN@L1-G111-BIND\n# creator: Peer\n")
+    port = _free_port()
+    identity = stargate_identity.generate_identity(f"bind-node:{port}", bits=1024)
+    gateway = engine.LocalGateway(port=port, identity=identity)
+    gateway.register_gene("bind-test", str(gene_path))
+    threading.Thread(target=gateway.start, daemon=True).start()
+    base_url = f"http://127.0.0.1:{port}"
+    try:
+        _wait_for_http(f"{base_url}/hello")
+        # correct claim (the real fingerprint) → handshake succeeds
+        ok = stargate_resolver.handshake_peer(base_url, expected_node_id=identity["node_id"])
+        assert ok["manifest"]["node_id"] == identity["node_id"]
+        # forged claim → handshake refuses, binding the discovery id to the verified key
+        try:
+            stargate_resolver.handshake_peer(base_url, expected_node_id="b" * 64)
+            assert False, "forged beacon id must be rejected at handshake"
+        except ValueError as exc:
+            assert "beacon-advertised" in str(exc)
+    finally:
+        gateway.stop()
+
+
+def test_manifest_advertises_ledger_reputation(tmp_path):
+    import evolution
+    gene_path = tmp_path / "rep_gene.pgn"
+    gene_path.write_bytes(b"# life_id: PGN@L1-G112-REP\n# creator: Peer\n")
+    expected = hashlib.sha256(gene_path.read_bytes()).hexdigest()
+    port = _free_port()
+    identity = stargate_identity.generate_identity(f"rep-node:{port}", bits=1024)
+    gateway = engine.LocalGateway(port=port, identity=identity)
+    gateway.ledger = evolution.GeneLedger()
+    gateway.ledger.register_version("rep-test", expected)
+    gateway.ledger.record_outcome(expected, success=True)
+    gateway.ledger.record_outcome(expected, success=True)
+    gateway.register_gene("rep-test", str(gene_path))
+    threading.Thread(target=gateway.start, daemon=True).start()
+    base_url = f"http://127.0.0.1:{port}"
+    try:
+        _wait_for_http(f"{base_url}/hello")
+        session = stargate_resolver.handshake_peer(base_url)
+        entry = next(g for g in session["manifest"]["genes"] if g["content_sha256"] == expected)
+        # the peer's first-hand L4 evidence rode along on the signed manifest
+        assert entry["reputation"] == 2.0
+        assert entry["lineage_depth"] == 2
+        assert entry["retired"] is False
+    finally:
+        gateway.stop()
+
+
 def test_gateway_manifest_and_gene_hash_endpoints(tmp_path):
     gene_path = tmp_path / "p2p_gene.pgn"
     payload = b"# life_id: PGN@L1-G105-P2P\n# creator: Peer\n# description: p2p connectivity test\n"

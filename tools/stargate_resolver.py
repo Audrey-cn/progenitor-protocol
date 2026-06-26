@@ -16,7 +16,7 @@ HATCHERY_DIR = PROTOCOL_DIR / "hatchery"
 if str(HATCHERY_DIR) not in sys.path:
     sys.path.insert(0, str(HATCHERY_DIR))
 
-from stargate_identity import sign_document, verify_document
+from stargate_identity import sign_document, verify_document, verify_node_identity
 
 INDEX_FILE = REGISTRY_DIR / ".akashic_index.json"
 GENES_DIR = REGISTRY_DIR / "genes"
@@ -300,6 +300,9 @@ def beacon_scan(
             record = {
                 "peer_url": peer_url,
                 "node_id": ack.get("node_id", ""),
+                # a beacon's node_id is an UNVERIFIED claim — only the signed handshake binds id ⇄ key.
+                # Pass this node_id to handshake_peer(expected_node_id=...) to catch a lying beacon.
+                "id_verified": False,
                 "hostname": ack.get("hostname", ""),
                 "genes": len(ack.get("genes", [])),
                 "source": "udp_beacon",
@@ -410,8 +413,8 @@ def load_registry_public_key() -> dict | None:
             pass
     # Default public key — hard-coded for the official progenitor-registry
     return {
-        "key_type": "progenitor-rsa-sha256-v1",
-        "n": "xsGf15m3fq0Ox4meCgG2BPAMCvkO39rttv6H79vIgpkMh6Z_TrRQyc8V4HBlSVJHBfItvHbMVZxw645lEorOX2lfu4URA5Z4HkvfKikgEeiOWMaAANaoTwuah8ys0MydmM50z7609QGLx4VWLAvWe5RfCy_PCwr61hFriWKl4q0",
+        "key_type": "progenitor-rsa-pkcs1-sha256-v1",
+        "n": "ZRM8Gjp922d9mth97wQcqyVhvCzSQCSt5DduHe_KH8zB2dAldhIdIkqPfRIoFN9IxUxYkrUod4FoVjWqgqRUZoaOXbndCZeOY4OfqXgKEY52t4PeV0W2Kq_lL94Zt0M-tTuJmF17Dkpvn4RH9Wze17cUq9L8IV4H7tuGJyiu4u0s2N5HVjhDrGDtKWEZQ_0nZ_OK98pVEk25ELwnUqzabvaGAZdEvEdrKfNoeyM3jIxYqkgf04wfBXQDms6EJ5tazq8GyKNOZMNrq4AnGQXkas1Z2bAb0EdgLczUKUcJ3ogtT0ZYfYzaTSbGZ2TgsIT5Y4RyNEnJyBza2YERexJlYQ",
         "e": 65537,
     }
 
@@ -573,6 +576,7 @@ def build_peer_manifest(index: dict, node_id: str = "local", identity: dict | No
         manifest["node"] = {
             "schema_version": identity.get("schema_version", "akashic.node-identity/v1"),
             "node_id": identity["node_id"],
+            "label": identity.get("label", ""),
             "key_type": identity["key_type"],
             "public_key": identity["public_key"],
             "public_key_id": identity["public_key_id"],
@@ -582,7 +586,8 @@ def build_peer_manifest(index: dict, node_id: str = "local", identity: dict | No
     return manifest
 
 
-def handshake_peer(peer_url: str, *, trust_on_first_use: bool = True, timeout: int = 10) -> dict:
+def handshake_peer(peer_url: str, *, trust_on_first_use: bool = True, timeout: int = 10,
+                   expected_node_id: str = "") -> dict:
     peer_url = peer_url.rstrip("/")
     hello = fetch_json(f"{peer_url}/hello", timeout=timeout)
     node = hello.get("node") or {}
@@ -595,6 +600,20 @@ def handshake_peer(peer_url: str, *, trust_on_first_use: bool = True, timeout: i
     if is_blocked_peer(peer_url, node_id):
         audit_peer("blocked_peer_rejected", peer_url, {"node_id": node_id})
         raise PermissionError(f"blocked peer: {peer_url}")
+
+    # Self-certifying identity: node_id must equal the key fingerprint (== public_key_id), so the
+    # id is an unforgeable claim rather than an arbitrary string. The manifest signature below then
+    # proves the peer actually holds that key. Together they bind name → key with no central authority.
+    if not verify_node_identity(node):
+        audit_peer("peer_identity_not_self_certifying", peer_url,
+                   {"node_id": node_id, "public_key_id": node.get("public_key_id", "")})
+        raise ValueError("peer node identity is not self-certifying (node_id must equal key fingerprint)")
+
+    # Bind a discovery-layer claim to the verified key: if we reached this peer via a beacon that
+    # advertised a node_id, the cryptographically-verified node_id must match it — else the beacon lied.
+    if expected_node_id and node_id != expected_node_id:
+        audit_peer("peer_beacon_id_mismatch", peer_url, {"claimed": expected_node_id, "verified": node_id})
+        raise ValueError("beacon-advertised node_id does not match the verified key fingerprint")
 
     manifest = fetch_json(f"{peer_url}/manifest", timeout=timeout)
     if manifest.get("schema_version") != PEER_MANIFEST_VERSION:

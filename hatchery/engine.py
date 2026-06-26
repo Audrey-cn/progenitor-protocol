@@ -184,8 +184,8 @@ AKASHIC_SIGNATURE_REQUIRED = AKASHIC_SIGNATURE_MODE in {"required", "strict"}
 AKASHIC_INDEX_SIGNATURE_MODE = os.environ.get("PROGENITOR_INDEX_SIGNATURE_MODE", "strict")
 AKASHIC_INDEX_SIGNATURE_REQUIRED = AKASHIC_INDEX_SIGNATURE_MODE in {"required", "strict"}
 _AKASHIC_REGISTRY_PUBLIC_KEY_DEFAULT = {
-    "key_type": "progenitor-rsa-sha256-v1",
-    "n": "xsGf15m3fq0Ox4meCgG2BPAMCvkO39rttv6H79vIgpkMh6Z_TrRQyc8V4HBlSVJHBfItvHbMVZxw645lEorOX2lfu4URA5Z4HkvfKikgEeiOWMaAANaoTwuah8ys0MydmM50z7609QGLx4VWLAvWe5RfCy_PCwr61hFriWKl4q0",
+    "key_type": "progenitor-rsa-pkcs1-sha256-v1",
+    "n": "ZRM8Gjp922d9mth97wQcqyVhvCzSQCSt5DduHe_KH8zB2dAldhIdIkqPfRIoFN9IxUxYkrUod4FoVjWqgqRUZoaOXbndCZeOY4OfqXgKEY52t4PeV0W2Kq_lL94Zt0M-tTuJmF17Dkpvn4RH9Wze17cUq9L8IV4H7tuGJyiu4u0s2N5HVjhDrGDtKWEZQ_0nZ_OK98pVEk25ELwnUqzabvaGAZdEvEdrKfNoeyM3jIxYqkgf04wfBXQDms6EJ5tazq8GyKNOZMNrq4AnGQXkas1Z2bAb0EdgLczUKUcJ3ogtT0ZYfYzaTSbGZ2TgsIT5Y4RyNEnJyBza2YERexJlYQ",
     "e": 65537,
 }
 _registry_pk_env = os.environ.get("PROGENITOR_REGISTRY_PUBLIC_KEY", "")
@@ -1911,6 +1911,11 @@ class Phagocyte:
         self.crucible = Crucible()
         self.packager = None
         self._sanctuary_dir = None
+        # L4 evolution (docs/L4_EVOLUTION_DESIGN.md): optional, duck-typed gene-reputation ledger.
+        # Attach an ``evolution.GeneLedger`` to score genes from real usage; left None, all existing
+        # flows are untouched (express_and_score degrades to plain express_gene). Not imported here
+        # so the seed stays self-contained without inlining the module.
+        self.ledger = None
 
     # ── [Pathway A] 局部胞吞 ──────────────────────────────
 
@@ -2279,6 +2284,12 @@ class Phagocyte:
                     print(f"   [G010] 罗盘已原子级进化")
             except urllib.error.HTTPError as exc:
                 print(f"   ⚠️ [罗盘校准] 星界节点返回 HTTP {exc.code}——远端星图暂不可用，回退至纯本地罗盘。")
+            except RuntimeError:
+                # [security] A strict/required-mode signature-verification abort must NOT be
+                # swallowed by the broad network-fallback handler below — propagate it (fail closed),
+                # otherwise a tampered/unsigned index silently falls back to a (possibly poisoned)
+                # local index. Genuine network errors stay caught by the Exception handler.
+                raise
             except Exception as exc:
                 print(f"   ⚠️ [罗盘校准] 星界链路中断 ({exc})——回退至纯本地罗盘。")
         if capability_name not in index:
@@ -2479,6 +2490,42 @@ class Phagocyte:
         result["manifest"] = manifest
         result["advisory"] = True
         result["granted"] = declared if grants is not None else None
+        return result
+
+    @staticmethod
+    def _classify_expression_outcome(status):
+        """Map an ``express_gene`` status to an L4 signal: True=success, False=failure, None=skip.
+
+        A gene that runs and proposes a result is a success; an ``error`` (failed to run) or
+        ``rejected`` (violated the AST allowlist) is the gene's own failure. ``ungranted`` is host
+        policy — not the gene's fault — so it is deliberately not scored.
+        """
+        if status in ("error", "rejected"):
+            return False
+        if status == "ungranted":
+            return None
+        return True
+
+    def express_and_score(self, filepath, parameters=None, function_name="main", grants=None,
+                          capability=""):
+        """``express_gene`` + record the outcome into the attached L4 ledger (``self.ledger``).
+
+        This is the one real wire-in of layer L4: real usage moves a gene's reputation, which —
+        via ``ledger.reputation_signal`` → ``adoption.decide`` — can later get a regressed gene
+        refused. With no ledger attached this is exactly ``express_gene``. The ledger update (if
+        any) is returned under the ``evolution`` key; ledger errors never break expression.
+        """
+        result = self.express_gene(filepath, parameters=parameters, function_name=function_name, grants=grants)
+        if self.ledger is not None:
+            success = self._classify_expression_outcome(result.get("status"))
+            if success is not None:
+                try:
+                    content_sha256 = hashlib.sha256(Path(filepath).read_bytes()).hexdigest()
+                    cap = capability or (result.get("manifest") or {}).get("life_id", "")
+                    result["evolution"] = self.ledger.record_outcome(
+                        content_sha256, success=success, capability=cap)
+                except Exception:
+                    pass
         return result
 
     def propose_adoption(self, gene_bytes, *, capability=None, index_entry=None, source=None,
@@ -5465,7 +5512,7 @@ class LocalGateway:
         if identity is None:
             try:
                 from stargate_identity import default_identity_path, load_or_create_identity
-                identity = load_or_create_identity(default_identity_path(port), node_id=f"local-gateway:{port}")
+                identity = load_or_create_identity(default_identity_path(port), label=f"local-gateway:{port}")
             except Exception:
                 identity = {
                     "schema_version": "akashic.node-identity/v1",
@@ -5473,8 +5520,14 @@ class LocalGateway:
                     "key_type": "unsigned",
                     "public_key": {},
                     "public_key_id": "",
+                    # No key → not self-certifying. A peer's handshake will reject this (verify_node_identity
+                    # fails on the empty key); the marker makes that honest at serve time too.
+                    "unverified": True,
                 }
         self.identity = identity
+        # Optional, duck-typed L4 ledger. When attached, the served peer manifest advertises each
+        # gene's reputation/lineage/retired state so peers can reconcile divergent refs (federation).
+        self.ledger = None
 
     def register_peer(self, peer_url: str, label: str = "", trust_state: str = "candidate"):
         """Advertise a known peer without trusting it implicitly."""
@@ -5671,12 +5724,23 @@ class LocalGateway:
         genes = []
         for name in sorted(self.gene_index):
             record = self._gene_record(name)
-            genes.append({
+            entry = {
                 "capability": record.get("capability", name),
                 "content_sha256": record.get("content_sha256", ""),
                 "trust_state": record.get("trust_state", "peer_advertised"),
                 "transport_hints": record.get("transport_hints", []),
-            })
+            }
+            # Federation: advertise this node's first-hand L4 evidence for the gene, so a consuming
+            # peer can reconcile divergent refs. Signed along with the manifest below (so it can't be
+            # tampered in transit) — though a peer still only trusts these numbers as far as it trusts
+            # this node (see federation.reconcile_peer_manifests, which gates by OUR trust in the peer).
+            if self.ledger is not None and entry["content_sha256"]:
+                rep = self.ledger.reputation_of(entry["content_sha256"])
+                if rep:
+                    entry["reputation"] = rep.get("score", 0.0)
+                    entry["lineage_depth"] = len(rep.get("lineage", []))
+                    entry["retired"] = rep.get("status") == "retired"
+            genes.append(entry)
         manifest = {
             "schema_version": "akashic.peer-manifest/v1",
             "protocol_versions": {

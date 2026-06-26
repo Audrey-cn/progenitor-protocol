@@ -34,6 +34,12 @@ def resolve_transport(transport_hints, expected_sha256, fetcher, *, allow_types=
         {"status": "fetched"|"exhausted", "bytes": ..., "transport": type, "url": ..., "attempts": [...]}
     """
     attempts = []
+    # [security] Content-addressing IS the trust here — without an expected hash there is nothing
+    # to verify against, so fetched bytes can't be trusted. Fail closed rather than return
+    # arbitrary first-fetcher bytes as a "successful" fetch.
+    if not expected_sha256:
+        return {"status": "no_expected_hash", "bytes": None, "transport": None, "url": None,
+                "attempts": [{"type": "*", "url": None, "result": "no_expected_hash"}]}
     for hint in sorted(transport_hints or [], key=_priority):
         ttype = hint.get("type", "unknown")
         url = hint.get("url")
@@ -48,7 +54,7 @@ def resolve_transport(transport_hints, expected_sha256, fetcher, *, allow_types=
         if payload is None:
             attempts.append({"type": ttype, "url": url, "result": "unavailable"})
             continue
-        if expected_sha256 and hashlib.sha256(payload).hexdigest() != expected_sha256:
+        if hashlib.sha256(payload).hexdigest() != expected_sha256:
             attempts.append({"type": ttype, "url": url, "result": "hash_mismatch"})
             continue
         attempts.append({"type": ttype, "url": url, "result": "ok"})
@@ -101,20 +107,65 @@ def make_ipfs_fetcher(gateways, timeout=15, max_bytes=DEFAULT_MAX_BYTES):
     return _fetch
 
 
-def default_fetcher(*, base_dir=None, gateways=None, timeout=15, max_bytes=DEFAULT_MAX_BYTES):
-    """A dispatching fetcher that routes each hint to the right transport by ``type``."""
-    file_f = make_file_fetcher(base_dir) if base_dir else (lambda hint: None)
-    http_f = make_http_fetcher(timeout, max_bytes)
-    ipfs_f = make_ipfs_fetcher(gateways, timeout, max_bytes) if gateways else (lambda hint: None)
+# --- transport registry: the sidecar seam (docs/AKASHIC_LAYERED_ARCHITECTURE.md §5) -----------
 
-    def _fetch(hint):
-        ttype = hint.get("type")
-        if ttype == "registry_path":
-            return file_f(hint)
-        if ttype in HTTP_TYPES:
-            return http_f(hint)
-        if ttype == "ipfs":
-            return ipfs_f(hint)
-        url = hint.get("url", "")
-        return http_f(hint) if url.startswith("http") else None
-    return _fetch
+class TransportRegistry:
+    """Maps a transport ``type`` → a fetcher, so a new transport plugs in by *registration* instead
+    of by editing the dispatcher. This is the seam that keeps the engine core zero-dependency while
+    letting a host wire an *optional* heavier substrate at runtime — a libp2p / IPFS / Syncthing-relay
+    adapter — with no change to ``resolve_transport`` or any upper layer (L3–L5).
+
+    Content-addressing is what makes this safe: ``resolve_transport`` verifies the SHA-256 of every
+    payload, so the upper layers never need to know — and cannot tell — which transport carried the
+    bytes. A registered adapter is just ``fetch(hint) -> bytes | None`` (None = unavailable, raise =
+    error; both are misses the ladder walks past).
+    """
+
+    def __init__(self):
+        self._adapters = {}  # type -> fetcher(hint) -> bytes | None
+
+    def register(self, ttype, fetcher):
+        """Register (or override) the fetcher for a transport ``type``. Returns self for chaining."""
+        self._adapters[ttype] = fetcher
+        return self
+
+    def register_many(self, types, fetcher):
+        for ttype in types:
+            self._adapters[ttype] = fetcher
+        return self
+
+    def types(self):
+        return tuple(self._adapters)
+
+    def fetcher(self):
+        """Produce the dispatching fetcher to hand to ``resolve_transport``."""
+        def _fetch(hint):
+            adapter = self._adapters.get(hint.get("type"))
+            if adapter is None:
+                # tolerate a typeless hint that still carries an http(s) URL
+                url = hint.get("url", "")
+                adapter = self._adapters.get("http") if url.startswith("http") else None
+            return adapter(hint) if adapter else None
+        return _fetch
+
+
+def default_registry(*, base_dir=None, gateways=None, timeout=15, max_bytes=DEFAULT_MAX_BYTES):
+    """The built-in, stdlib-only registry: file + HTTP (+ IPFS gateway when configured). A sidecar
+    registers extra transports onto the returned instance, e.g. ``reg.register("libp2p", adapter)``.
+    """
+    registry = TransportRegistry()
+    if base_dir:
+        registry.register("registry_path", make_file_fetcher(base_dir))
+    registry.register_many(HTTP_TYPES, make_http_fetcher(timeout, max_bytes))
+    if gateways:
+        registry.register("ipfs", make_ipfs_fetcher(gateways, timeout, max_bytes))
+    return registry
+
+
+def default_fetcher(*, base_dir=None, gateways=None, timeout=15, max_bytes=DEFAULT_MAX_BYTES):
+    """A dispatching fetcher that routes each hint to the right transport by ``type``.
+
+    Thin wrapper over ``default_registry().fetcher()`` — kept for call-site compatibility; new code
+    that needs to add a sidecar transport should build a ``default_registry(...)`` and ``register``.
+    """
+    return default_registry(base_dir=base_dir, gateways=gateways, timeout=timeout, max_bytes=max_bytes).fetcher()

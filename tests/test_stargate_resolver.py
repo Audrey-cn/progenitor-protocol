@@ -86,7 +86,9 @@ def test_identity_sign_and_verify_manifest():
         identity=identity,
     )
 
-    assert manifest["node_id"] == "node-test"
+    # node_id is now self-certifying (the key fingerprint); the human string is a non-authoritative label.
+    assert manifest["node_id"] == identity["public_key_id"]
+    assert identity["label"] == "node-test"
     assert manifest["signature"]["public_key_id"] == identity["public_key_id"]
     assert stargate_identity.verify_document(manifest, identity["public_key"])
 
@@ -117,7 +119,7 @@ def test_peer_handshake_and_hash_resolve(tmp_path):
             except OSError:
                 time.sleep(0.05)
         session = stargate_resolver.handshake_peer(base_url)
-        assert session["manifest"]["node_id"] == f"peer-node:{port}"
+        assert session["manifest"]["node_id"] == identity["public_key_id"]
         assert session["manifest"]["signature"]
 
         resolved = stargate_resolver.resolve_from_peer(base_url, "signed-peer-test")
@@ -351,7 +353,7 @@ def test_verify_index_signature_load_public_key():
     """Default public key is valid and loadable."""
     pk = stargate_resolver.load_registry_public_key()
     assert pk is not None
-    assert pk["key_type"] == "progenitor-rsa-sha256-v1"
+    assert pk["key_type"] == "progenitor-rsa-pkcs1-sha256-v1"
     assert "n" in pk
     assert "e" in pk
     assert pk["e"] == 65537
