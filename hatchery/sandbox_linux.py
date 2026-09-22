@@ -107,7 +107,7 @@ def _build_filter(deny=True, variant="full"):
         # Diagnostic bisect: deny socket only, no open/openat involvement.
         return [
             _stmt(BPF_LD_W_ABS, 4),
-            _jump(BPF_JEQ_K, AUDIT_ARCH_X86_64, 0, 5),
+            _jump(BPF_JEQ_K, AUDIT_ARCH_X86_64, 0, 4),
             _stmt(BPF_LD_W_ABS, 0),
             _jump(BPF_JEQ_K, SYS_SOCKET, 2, 0),
             _stmt(BPF_RET_K, SECCOMP_RET_ALLOW),
