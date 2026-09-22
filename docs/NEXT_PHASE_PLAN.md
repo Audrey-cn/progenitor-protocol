@@ -175,6 +175,40 @@ Governance to-dos 1–7 above are all closed. The restart order:
 3. **R3** tagged release — after R1, so the release ships network-tested claims.
 4. **R4 / R5** — continuous, non-blocking.
 
+## Linux 环境接手清单（切换系统环境时从此处续接）
+
+> 2026-09-22 记录。以下任务因需要真实 seccomp/Linux 环境而挂起：GH Actions runner 的
+> 安全 profile 拒绝嵌套 seccomp 安装——6 条指令的有效过滤器（字节级 hex 已验证正确）
+> 经 prctl(22) 与 seccomp(2) 双路径均返回 EINVAL。本机 Windows 未装 WSL——
+> `wsl --install` 即可在本机获得可用的 seccomp 环境，无需换机。
+
+### 当前状态（起点）
+- Stage 1 代码已在 main：`hatchery/sandbox_linux.py`（opt-in，默认关）、
+  `_sandbox_worker` 接线、探针测试 `tests/test_sandbox_seccomp.py`（CI 上跳过）。
+- 已收集的 runner 诊断数据：最小过滤器（arch+ALLOW）安装成功且放行一切；
+  含 nr 匹配的过滤器被 EINVAL；完整过滤器安装成功但拒绝一切（含只读）。
+  三变体诊断测试已写入 tests/test_sandbox_seccomp.py，等待真实 Linux 运行。
+
+### 接手步骤
+1. 安装 WSL2（本机）或使用任意 Linux VM/物理机；`pip install pytest`
+2. `python -m pytest tests/test_sandbox_seccomp.py -v` 运行三变体诊断
+   （diag-arch-match / diag-openat-any / diag-openat-writeflag）
+3. 依据结果分流：
+   a. 三变体全部按预期 → runner profile 问题实锤；`apply_sandbox_hardening`
+      默认改回 on（去掉 opt-in），更新 R4_SANDBOX.md，Stage 1 完全关闭
+   b. diag-arch-match 异常 → seccomp_data.arch 偏移/常量问题，复查编码
+   c. diag-openat-any 异常 → nr 匹配链问题，复查 JEQ 跳转算术
+   d. 仅 diag-openat-writeflag 异常 → 0x643 掩码 AND/JEQ 链问题
+4. 修复后全量回归（195+ 测试）；PR + CI
+5. 后续：Stage 2 Landlock（Linux 内核 5.13+）+ Windows Job Objects（本机 ctypes 可做）
+
+### 本机可做（Windows，无需 Linux）
+- 种子引导模板的转义卫生：`r'\[...` 与 `\s` 的 SyntaxWarning（-W error 时失败；
+  种子功能不受影响，纯卫生）。根因在 incubator 模板的多层转义发射链，
+  需配合 strace/compile 逐层定位。
+
+---
+
 ## Acceptance Commands
 
 Repo-relative (portable; verified on Windows + Linux CI, 2026-09-22):
