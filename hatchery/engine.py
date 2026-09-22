@@ -763,12 +763,24 @@ def _sandbox_worker(queue, filepath, function_name, parameters, max_mem_mb, time
             ),
         })
         return
+
+    # [R4 Stage 1] Kernel hardening inside the cage (Linux x86-64: seccomp-BPF denylist —
+    # socket/socketpair/connect/execve/execveat → EPERM). Best-effort by design: an install
+    # failure degrades and is REPORTED in the result ("hardening") instead of breaking the
+    # run — the VM/container advice for untrusted genes stands regardless.
+    _hardening = None
     try:
         import sys
         sys.path.insert(0, str(Path(filepath).parent))
         
         # 读取并执行基因文件
         code_content = Path(filepath).read_text(encoding="utf-8")
+        try:
+            from sandbox_linux import apply_sandbox_hardening
+            _hardening = apply_sandbox_hardening(variant="network-exec")
+        except Exception as hard_err:
+            _hardening = {"applied": False, "reason": f"{type(hard_err).__name__}: {hard_err}"}
+
         
         # 创建受限的执行环境
         sandbox_env = {
@@ -802,7 +814,7 @@ def _sandbox_worker(queue, filepath, function_name, parameters, max_mem_mb, time
             else:
                 result = {"status": "loaded", "message": "基因加载成功但无主函数"}
         
-        queue.put({"status": "success", "result": result})
+        queue.put({"status": "success", "result": result, "hardening": _hardening})
     
     except ApoptosisException as e:
         queue.put({"status": "error", "error": f"端粒凋亡: {str(e)}"})
