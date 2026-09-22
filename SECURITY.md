@@ -24,6 +24,36 @@ maintainer privately for sensitive reports). This is research code — there is 
   keyring (\PROGENITOR_TRUST_KEYRING[_FILE]\) with signed genes upgrading \	rust_state\.
 - See [docs/REVIEW.md](docs/REVIEW.md) for the full security findings and their status.
 
+## Converging your trust ring (reduce single-point trust)
+
+The default keyring hard-codes the founder's public key - that is a single point of trust.
+Hosts SHOULD converge it to their own explicit trust set:
+
+```bash
+# 1. Export your trusted signers' public identities into a keyring file:
+#    {"trusted_keys": [{"owner": "...", "public_key": {...}}, ...]}
+# 2. Point the engine at it:
+set PROGENITOR_TRUST_KEYRING_FILE=path/to/trusted_keys.json
+# 3. Optionally narrow further (comma-separated owners/key_ids):
+set PROGENITOR_TRUST_SET=YourName
+```
+
+With a converged ring, only genes signed by YOUR trusted set upgrade to
+`creator-signed:<owner>`; everything else stays untrusted regardless of registry status.
+
+## Known gap: spore consent is one-way
+
+Spore propagation consent is a one-time, global flag with **no revoke/withdraw mechanism**
+(code audit 2026-09-22: zero revoke/withdraw implementations). Treat consent as permanent
+for the process lifetime; run in a disposable environment if this is unacceptable.
+Scheduled for hardening - see [EXTERNAL_REVIEW_SIMULATION.md](docs/EXTERNAL_REVIEW_SIMULATION.md) R5.
+
+## External review simulation
+
+The harshest third-party-perspective audit of this project is checked in at
+[EXTERNAL_REVIEW_SIMULATION.md](docs/EXTERNAL_REVIEW_SIMULATION.md) - read it before
+trusting any claim in this README.
+
 ## Supported versions
 
 Only `main` is supported; there are no released/maintained versions yet.

@@ -173,6 +173,8 @@ Agent 之间用自证身份（`node_id` 由公钥推导）互相握手，基因�
 
 ```bash
 curl -sL -o pgn-core.pgn https://github.com/Audrey-cn/progenitor-protocol/releases/download/v2.2.0-Federation-Proof/INGEST_ME_TO_EVOLVE_pgn-core.pgn
+# 哈希钉死（推荐）：核对官方公布的 SHA-256 再运行
+# （仓库用户也可用：python tools/verify_seed.py --expect <sha256>）
 python3 pgn-core.pgn
 ```
 

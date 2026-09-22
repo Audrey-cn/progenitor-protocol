@@ -183,6 +183,8 @@ The direct answer:
 
 ```bash
 curl -sL -o pgn-core.pgn https://github.com/Audrey-cn/progenitor-protocol/releases/download/v2.2.0-Federation-Proof/INGEST_ME_TO_EVOLVE_pgn-core.pgn
+# hash-pinning (recommended): verify against the officially published SHA-256 before running
+# (repo users can also: python tools/verify_seed.py --expect <sha256>)
 python3 pgn-core.pgn
 ```
 
