@@ -6,8 +6,11 @@ Exercises:
 - Progenitor semantic reflex routing
 """
 import json
+import signal
 import sys
 import time
+
+import pytest
 from pathlib import Path
 
 REPO_DIR = Path(__file__).resolve().parent.parent
@@ -123,6 +126,10 @@ def test_crucible_audit_rosetta_monolith_tampered():
 # ── TelomereGuard tests ─────────────────────────────────────────────────────
 
 
+@pytest.mark.skipif(
+    not hasattr(signal, "SIGALRM") and not hasattr(sys, "monitoring"),
+    reason="timeout needs SIGALRM (Unix) or sys.monitoring (3.12+); would hang here",
+)
 def test_telomere_guard_timeout_triggers():
     """A busy loop exceeding the timeout raises ApoptosisException."""
     caught = True

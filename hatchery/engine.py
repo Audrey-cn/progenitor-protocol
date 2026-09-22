@@ -935,7 +935,8 @@ class TelomereGuard:
         癌变 (死循环 / 内存溢出) 被困锁在凋亡小体内，宿主毫发无损。
 
     Unix: signal.SIGALRM + resource.RLIMIT_AS
-    Windows/非Unix: sys.settrace + time.time() 指令周期端粒
+    Windows/非Unix: sys.monitoring (Python 3.12+) 或 sys.settrace + time.time()
+    指令周期端粒（软上限——在下一行代码处触发；无内存上限）
     """
     def __init__(self, max_mem_mb=50, timeout_sec=5):
         self.max_mem_bytes = max_mem_mb * 1024 * 1024
@@ -944,6 +945,7 @@ class TelomereGuard:
         self._old_rlimit = None
         self._start_time = None
         self._trace_active = False
+        self._monitor_active = False
 
     def _timeout_handler(self, signum, frame):
         raise ApoptosisException("\u23f3 时间端粒耗尽：检测到死循环或计算超时，触发细胞凋亡。")
@@ -957,6 +959,57 @@ class TelomereGuard:
                 "\u23f3 时间端粒耗尽 (跨平台降级机制触发)：检测到死循环。"
             )
         return self._trace_telomere
+
+    # --- sys.monitoring path (Python 3.12+, non-Unix / non-main-thread) ---------------
+    # Unlike sys.settrace, monitoring LINE events fire for the *current* frame even when
+    # armed mid-execution, so a busy loop inside the guarded block is actually interruptible.
+    _MON_TOOL_ID = 4  # free slot (0-2 are debugger/coverage/profile)
+
+    def _disarm_monitoring(self):
+        if not self._monitor_active:
+            return
+        m = sys.monitoring
+        try:
+            try:
+                m.register_callback(self._MON_TOOL_ID, m.events.LINE, None)
+            except TypeError:  # Python 3.12/3.13 two-arg signature
+                m.register_callback(self._MON_TOOL_ID, None)
+        except (RuntimeError, ValueError):
+            pass
+        try:
+            m.set_events(self._MON_TOOL_ID, 0)
+            m.free_tool_id(self._MON_TOOL_ID)
+        except (RuntimeError, ValueError):
+            pass
+        self._monitor_active = False
+
+    def _arm_monitoring(self):
+        m = getattr(sys, "monitoring", None)
+        if m is None:
+            return False
+        try:
+            m.use_tool_id(self._MON_TOOL_ID, "progenitor-telomere")
+        except RuntimeError:
+            return False  # slot busy with another tool
+        self._monitor_active = True  # before events fire, so disarm always works
+        try:
+            m.set_events(self._MON_TOOL_ID, m.events.LINE)
+            try:
+                m.register_callback(self._MON_TOOL_ID, m.events.LINE, self._monitor_timeout)
+            except TypeError:  # Python 3.12/3.13 two-arg signature
+                m.register_callback(self._MON_TOOL_ID, self._monitor_timeout)
+            return True
+        except (RuntimeError, ValueError):
+            self._disarm_monitoring()
+            return False
+
+    def _monitor_timeout(self, code, line_num):
+        import time
+        if time.time() - self._start_time > self.timeout_sec:
+            self._disarm_monitoring()
+            raise ApoptosisException(
+                "⏳ 时间端粒耗尽 (sys.monitoring 跨平台机制触发)：检测到死循环。"
+            )
 
     def __enter__(self):
         if HAS_OS_LIMITS:
@@ -974,8 +1027,9 @@ class TelomereGuard:
         else:
             import time
             self._start_time = time.time()
-            sys.settrace(self._trace_telomere)
-            self._trace_active = True
+            if not self._arm_monitoring():
+                sys.settrace(self._trace_telomere)
+                self._trace_active = True
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -993,6 +1047,7 @@ class TelomereGuard:
             except (ValueError, AttributeError):
                 pass
         else:
+            self._disarm_monitoring()
             if self._trace_active:
                 sys.settrace(None)
                 self._trace_active = False

@@ -1,5 +1,7 @@
 """Gene Contract v2 — capability manifest + pure/advisory scoped execution (docs/VISION.md)."""
 import sys
+
+import pytest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hatchery"))
@@ -78,6 +80,10 @@ def test_run_pure_gene_missing_entry():
     assert out["status"] == "loaded"
 
 
+@pytest.mark.skipif(
+    not hasattr(__import__("signal"), "SIGALRM") and not hasattr(sys, "monitoring"),
+    reason="wall-clock cap needs SIGALRM (Unix) or sys.monitoring (3.12+); would hang here",
+)
 def test_run_pure_gene_times_out_on_runaway_loop():
     out = cap.run_pure_gene("def main():\n    while True:\n        pass\n", timeout_sec=1)
     assert out["status"] == "timeout"
