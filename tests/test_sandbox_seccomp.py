@@ -89,5 +89,15 @@ def test_diagnostic_variants(tmp_path, monkeypatch):
         assert line.startswith("PROBE:"), f"{variant}: {line}"
         report[variant] = json.loads(line[6:])
     print("DIAG-REPORT:", json.dumps(report, indent=1))
-    # 只做温和断言: 数据收集本身成功即可(具体语义由人工判读)
-    assert len(report) == 3, report
+    # Stage-1 语义断言(full = socket+exec 拒绝;FS 写限定归 Stage 2 Landlock):
+    # none      : 全部 ok(基线)
+    # minimal   : 全部 ok(编码+arch+安装验证)
+    # socket-only: read ok / socket EPERM(每 syscall 匹配验证)
+    # full      : read ok / write ok / socket EPERM(网络+exec 拒绝,无 FS 限定)
+    assert report["none"]["read"] == "ok" and report["none"]["socket"] == "ok", report["none"]
+    assert report["minimal"]["applied"] is True and report["minimal"]["read"] == "ok", report["minimal"]
+    assert report["socket-only"]["read"] == "ok", report["socket-only"]
+    assert report["socket-only"]["socket"] == "PermissionError", report["socket-only"]
+    assert report["full"]["read"] == "ok", report["full"]
+    assert report["full"]["write"] == "ok", report["full"]
+    assert report["full"]["socket"] == "PermissionError", report["full"]

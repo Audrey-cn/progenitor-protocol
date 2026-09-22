@@ -113,30 +113,19 @@ def _build_filter(deny=True, variant="full"):
             _stmt(BPF_RET_K, SECCOMP_RET_ALLOW),
             _stmt(BPF_RET_K, SECCOMP_RET_ERRNO | EPERM),
         ]
+    # Stage 1 scope: network + exec denial only. FS write-scoping via openat flag
+    # matching proved fragile under the cBPF verifier - that moves to Stage 2 (Landlock),
+    # which is the purpose-built tool for filesystem rules.
     return [
         _stmt(BPF_LD_W_ABS, 4),                            # 0:  seccomp_data.arch
-        _jump(BPF_JEQ_K, AUDIT_ARCH_X86_64, 0, 10),        # 1:  != x86-64 → EPERM-all
+        _jump(BPF_JEQ_K, AUDIT_ARCH_X86_64, 0, 5),         # 1:  != x86-64 → EPERM-all
         _stmt(BPF_LD_W_ABS, 0),                            # 2:  nr
-        _jump(BPF_JEQ_K, SYS_EXECVE, 7, 0),                # 3  → deny @11
-        _jump(BPF_JEQ_K, SYS_EXECVEAT, 6, 0),              # 4
-        _jump(BPF_JEQ_K, SYS_SOCKET, 5, 0),                # 5
-        _jump(BPF_JEQ_K, SYS_SOCKETPAIR, 4, 0),            # 6
-        _jump(BPF_JEQ_K, SYS_CONNECT, 3, 0),               # 7
-        _jump(BPF_JEQ_K, SYS_OPEN, 4, 0),                  # 8  → open flag block @13
-        _jump(BPF_JEQ_K, SYS_OPENAT, 8, 0),                # 9  → openat flag block @18
-        _stmt(BPF_RET_K, SECCOMP_RET_ALLOW),               # 10
-        _stmt(BPF_RET_K, SECCOMP_RET_ERRNO | EPERM),       # 11: denied
-        _stmt(BPF_RET_K, SECCOMP_RET_ERRNO | EPERM),       # 12: arch mismatch
-        _stmt(BPF_LD_W_ABS, 16),                           # 13: open(2) flags = arg0
-        _stmt(BPF_ALU_AND_K, O_WRITE_FLAGS),               # 14
-        _jump(BPF_JEQ_K, 0, 0, 1),                         # 15: ==0 → allow @16, else @17
-        _stmt(BPF_RET_K, SECCOMP_RET_ALLOW),               # 16
-        _stmt(BPF_RET_K, SECCOMP_RET_ERRNO | EPERM),       # 17
-        _stmt(BPF_LD_W_ABS, 24),                           # 18: openat(2) flags = arg1
-        _stmt(BPF_ALU_AND_K, O_WRITE_FLAGS),               # 19
-        _jump(BPF_JEQ_K, 0, 0, 1),                         # 20
-        _stmt(BPF_RET_K, SECCOMP_RET_ALLOW),               # 21
-        _stmt(BPF_RET_K, SECCOMP_RET_ERRNO | EPERM),       # 22
+        _jump(BPF_JEQ_K, SYS_EXECVE, 3, 0),                # 3  → deny @7
+        _jump(BPF_JEQ_K, SYS_EXECVEAT, 2, 0),              # 4
+        _jump(BPF_JEQ_K, SYS_SOCKET, 1, 0),                # 5
+        _jump(BPF_JEQ_K, SYS_CONNECT, 0, 0),               # 6
+        _stmt(BPF_RET_K, SECCOMP_RET_ALLOW),               # 7
+        _stmt(BPF_RET_K, SECCOMP_RET_ERRNO | EPERM),       # 8
     ]
 
 
@@ -212,5 +201,4 @@ def apply_sandbox_hardening(deny: bool = True, variant: str = "full") -> dict:
         err = ctypes.get_errno()
         raise SandboxHardeningError(f"PR_SET_SECCOMP failed: errno {err} (fprog@{ctypes.addressof(fprog):#x})")
     return {"applied": True, "method": "seccomp-bpf-denylist",
-            "blocked": ["socket", "socketpair", "connect", "execve", "execveat",
-                        "open/openat with write flags"]}
+            "blocked": ["socket", "socketpair", "connect", "execve", "execveat"]}

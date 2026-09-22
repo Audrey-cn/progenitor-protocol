@@ -45,6 +45,9 @@ A gene granted `effectful` execution must not be able to, beyond its declared gr
 - Tests (`tests/test_sandbox_seccomp.py`, run in a child process so the filter never leaks into
   pytest): blocked `socket()` + blocked write-`open()` (EPERM), imports still work under the
   filter, `PROGENITOR_SANDBOX_SECCOMP=off` differential proof, benign gene unaffected.
+- Scope note (2026-09-22, after CI bisection): the denylist ships network+exec only — an
+  openat write-flag match via cBPF AND/JEQ misbehaved on the runner (denied reads too) and is
+  deferred: FS scoping is Stage 2's job (Landlock), which is the purpose-built tool for it.
 - Gate: ubuntu CI must show the deny tests passing — that IS the kernel-level proof.
 ### Stage 2 — Landlock FS scoping (Linux) + Windows Job Objects
 - Landlock: ruleset allows read-only over the gene's own cache paths; everything else denied.
