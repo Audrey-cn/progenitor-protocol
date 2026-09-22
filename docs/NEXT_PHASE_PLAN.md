@@ -86,12 +86,22 @@ missing is evidence on a real network, split into three runnable steps:
   - Residual for R1.3: attaching `ipfs` transport hints to the live index requires re-signing
     with the registry root key (key ceremony is maintainer-held).
 
-- **R1.2 Transport-ladder failover on the real network**
-  - Action: resolve one gene with all three hint classes active
-    (`registry_path` → `github_raw` → `ipfs`), blocking one path at a time (firewall or
-    offline simulation).
-  - Exit criteria: the ladder skips the dead path and lands content-verified bytes from
-    the next hint; the attempt sequence is logged.
+- **✅ R1.2 Transport-ladder failover on the real network — DONE 2026-09-22**
+  - Method: live `Phagocyte.acquire_gene` runs against the real index entry (hello-world,
+    sha `5a702b24…`) with per-scenario env — dead-proxy (127.0.0.1:9) as a genuine
+    network-layer WAN block (`NO_PROXY` exempts the local daemon), `PROGENITOR_GATEWAY_ARRAY`
+    override, empty `base_dir`, and a stopped IPFS daemon. Reproducible runner:
+    `D:\项目\tools\r12_run.py`.
+  - Evidence (attempts log per scenario):
+    - S0 baseline (file present): lands `registry_path`, 1 attempt, `ok`.
+    - S1 file blocked: `registry_path` unavailable → `github_raw` real fetch `ok`.
+    - S2 file + WAN blocked, local daemon alive: → `github_raw` `error: URLError` →
+      `ipfs` `ok` (content-verified via local gateway).
+    - S3 all three blocked (daemon down): `exhausted` — honest failure, full attempt log
+      (`unavailable` / `error: URLError` / `unavailable`), no fake success.
+    - S4 recovery (daemon restarted): ipfs path lands again, bytes verified.
+  - Exit criteria met: dead paths skipped, content-verified bytes land from the next hint,
+    attempt sequence logged end-to-end.
 
 - **R1.3 Cross-network peer exchange**
   - Action: UDP discovery is LAN-broadcast only. Add explicit peer hints
