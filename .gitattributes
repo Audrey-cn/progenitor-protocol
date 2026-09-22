@@ -1,0 +1,6 @@
+# Line-ending governance (portability).
+#
+# The .pgn seed is a content-addressed artifact: a byte change is a different vessel.
+# Git must never normalize it, or hash/lineage checks break on cross-platform checkouts.
+* text=auto eol=lf
+*.pgn -text
