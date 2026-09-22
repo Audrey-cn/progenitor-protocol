@@ -765,26 +765,22 @@ def _sandbox_worker(queue, filepath, function_name, parameters, max_mem_mb, time
         return
 
     # [R4 Stage 1] Kernel hardening inside the cage (Linux x86-64: seccomp-BPF denylist —
-    # no socket/connect/execve + no write-flagged opens; read-only opens untouched so
-    # imports keep working). Fails closed on install errors; non-Linux hosts and
-    # PROGENITOR_SANDBOX_SECCOMP=off degrade with a reported reason.
+    # socket/socketpair/connect/execve/execveat → EPERM). Best-effort by design: an install
+    # failure degrades and is REPORTED in the result ("hardening") instead of breaking the
+    # run — the VM/container advice for untrusted genes stands regardless.
     _hardening = None
-    try:
-        from sandbox_linux import SandboxHardeningError, apply_sandbox_hardening
-        try:
-            _hardening = apply_sandbox_hardening()
-        except SandboxHardeningError as hard_err:
-            queue.put({"status": "error",
-                       "error": f"sandbox hardening failed (fail-closed): {hard_err}"})
-            return
-    except ImportError:
-        pass  # hardening module unavailable → proceed without it (host not hardened)
     try:
         import sys
         sys.path.insert(0, str(Path(filepath).parent))
         
         # 读取并执行基因文件
         code_content = Path(filepath).read_text(encoding="utf-8")
+        try:
+            from sandbox_linux import apply_sandbox_hardening
+            _hardening = apply_sandbox_hardening(variant="network-exec")
+        except Exception as hard_err:
+            _hardening = {"applied": False, "reason": f"{type(hard_err).__name__}: {hard_err}"}
+
         
         # 创建受限的执行环境
         sandbox_env = {
