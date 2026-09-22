@@ -9,9 +9,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-teal)]()
-[![status: experimental](https://img.shields.io/badge/status-experimental-orange.svg)](#-is-it-safe)
+[![status: experimental](https://img.shields.io/badge/status-experimental-orange.svg)](#is-it-safe)
 
-**Ecosystem** &nbsp;·&nbsp; 🧬 **Protocol** *(engine — you are here)* &nbsp;·&nbsp; 🔮 [**Registry**](https://github.com/Audrey-cn/progenitor-registry) *(the public gene pool)*
+**Ecosystem** &nbsp;·&nbsp; 🧬 **Protocol** *(engine — you are here)* &nbsp;·&nbsp; 🔮 [**Registry**](https://github.com/Audrey-cn/progenitor-registry) *(gene registry)*
 
 <sub>*"The Creator must deconstruct herself to reshape all things." — Audrey · 001X · 2026*</sub>
 
@@ -19,58 +19,54 @@
 
 ---
 
-> **Give your AI coding agent a persistent, self-verifying skill system** — one readable
-> file, zero dependencies, no framework lock-in. Skills travel as **content-addressed
-> "genes"**: their identity *is* their SHA-256, provenance is signed, and the host agent
-> — not the network — always decides what runs.
-
-<details>
-<summary>⚗️ About the "virus" in the room (origin story)</summary>
-
-The project started as a deliberately provocative experiment — *"a digital primordial virus
-that auto-infects agents"*. That framing was **consciously retired**: auto-infection is
-fundamentally at odds with trust. What we kept is the real superpower of a virus — frictionless,
-self-contained propagation — and rebuilt it on **verifiable provenance, scoped execution, and
-voluntary adoption**. The [VISION](docs/VISION.md) doc records the correction; the
-[GLOSSARY](docs/GLOSSARY.md) pins every metaphor to its actual mechanism.
-
-</details>
+> **Give your AI coding agent a persistent, self-verifying skill system.**
+> One readable file, zero dependencies, no framework lock-in. Skills travel as **genes**:
+> a gene's identity is its SHA-256, its provenance is signed, and **your agent always
+> decides what runs** — not the network.
 
 ---
 
 ## ✨ Why Progenitor
 
-Six ideas make this different from MCP servers and vendor skill stores. Each is implemented,
-tested, and — where it matters — verified against the live network.
+In one line: **a decentralized skill-package manager for AI agents, with trust built on
+math instead of platforms.** Everything below is implemented, tested, and verified against
+the live network.
 
-### 1 · One file. Zero dependencies. Any host.
-The engine ships as a single self-extracting `.pgn` you can read top-to-bottom before running.
-No `pip install`, no server process, no vendor SDK. `curl | python3` and it's alive —
-Linux and Windows.
+### 1 · Single-file bootstrap
 
-### 2 · The gene *is* its hash — trust math, not platforms
-A skill's true body is its SHA-256. The registry index is RSA-signed, signatures verify against
-a local web-of-trust keyring, and provenance upgrades `trust_state`. **No central authority
-decides what is authentic — the math does.**
+One `.pgn` seed file, `curl | python3` to activate. Zero dependencies (pure Python
+standard library), no server process, no vendor SDK — and you can read every line before
+running it. Linux and Windows.
 
-### 3 · Advisory execution (Gene Contract v2) — the keystone
-Genes declare `purity` and `grants`. **Pure** genes run in an AST-allowlist sandbox with no
-I/O and return *proposals* — the host decides. This turns the unsolvable problem ("sandbox
-arbitrary untrusted code") into a solvable one ("run a declared, authority-free function").
+### 2 · Content-addressed trust
 
-### 4 · Multi-path transport that survives censorship
-Every gene advertises transport hints — local registry → GitHub raw → peer → IPFS — tried in
-priority order, every payload hash-verified before landing. **Live-tested**: block any path and
-the ladder skips it; block all and it fails honestly.
+Every gene's identity IS its SHA-256: tamper with the content and the identity changes,
+exposing the tamper instantly. The registry index is RSA-signed and verified against your
+local **trust ring** (keyring). **No platform or authority to trust — just math.**
 
-### 5 · Voluntary adoption — the anti-virus virus
-`discover → inspect → host decides → adopt`. Nothing auto-infects, nothing auto-runs, and
-adoption requires explicit host approval. Skills propose; agents (and humans) dispose.
+### 3 · Declarative execution (Gene Contract v2)
 
-### 6 · Federated peers with stranger-injection defense
-Self-certifying identities (`node_id` derived from the public key), signed peer manifests,
-and reconciliation that **gates candidates by your trust in the peer** — a stranger cannot
-inject a winning version by claiming trust.
+Every gene declares its own boundary in a header: `purity: pure` means pure computation —
+no I/O, no network — running inside an AST-allowlist sandbox; `effectful` genes must
+request each capability explicitly. A gene's output is an **advisory proposal** — the
+host decides.
+
+### 4 · Multi-path transport
+
+Every gene carries multiple fetch paths: registry → GitHub → peer → IPFS, tried in
+priority order, with every payload hash-verified before use. **Live-tested**: block any
+path and the ladder skips it; block all and it fails honestly.
+
+### 5 · Voluntary adoption
+
+The fetch flow is fixed: **discover → inspect → host decides → cache**. The engine never
+auto-installs and never auto-runs — a hard rule of the design.
+
+### 6 · Peer federation + stranger defense
+
+Agents handshake with self-certifying identities (`node_id` derived from the public key),
+exchange signed manifests, and only adopt versions from peers **you** trust. Strangers
+cannot inject fake genes by claiming trust.
 
 ---
 
@@ -79,39 +75,58 @@ inject a winning version by claiming trust.
 | | MCP servers | Vendor skill stores | **Progenitor** |
 |---|---|---|---|
 | Install | server process + SDK | platform-bound client | **one file, `curl \| python3`** |
-| Trust root | the platform | the vendor | **SHA-256 + signatures (your keyring)** |
+| Trust root | the platform | the vendor | **SHA-256 + signatures (your trust ring)** |
 | Skill format | vendor-defined | vendor-defined | open gene manifest, stdlib-only |
-| Execution scope | host-defined | host-defined | **declared purity/grants, advisory output** |
-| Transport | single channel | platform channel | **multi-path ladder (local/HTTP/peer/IPFS)** |
+| Execution boundary | reviewed case-by-case | reviewed case-by-case | **genes declare boundaries, sandbox enforces** |
+| Fetch channels | single channel | platform channel | **multi-path ladder (registry / GitHub / peer / IPFS)** |
 | Works offline | rarely | no | **local + LAN spores** |
 
 ---
 
 ## 🧪 Evidence
 
-Proof over promises — every claim below has a runner you can re-execute.
+Proof over promises — each item has a re-runnable verification record
+([Next Phase Plan](docs/NEXT_PHASE_PLAN.md) R1.1–R1.3):
 
-| Claim | Evidence |
+- **Live-network round-trip**: a gene published to IPFS; a second node resolved the
+  provider via the public DHT and fetched byte-identical content.
+- **Failover**: fetch paths blocked one by one (file → GitHub → IPFS); the ladder skipped
+  dead paths; total blackout → honest error, never fake success.
+- **Injection defense**: an untrusted peer's signed manifest was rejected
+  (`no_candidate`); trusted peers adopted normally.
+- **Regression safety**: protocol 184 tests (Windows + CI) · registry 50 tests.
+- **Reproducible release**: [v2.2.0-Federation-Proof](https://github.com/Audrey-cn/progenitor-protocol/releases/tag/v2.2.0-Federation-Proof)
+  with seed + SHA-256, clean-room install verified.
+
+---
+
+## 🧬 Core Concepts
+
+One vocabulary, used consistently throughout:
+
+| Term | Meaning |
 |---|---|
-| IPFS transport round-trip on the live network | gene `5a702b24…` published (CID `bafkreic2…`); a second node resolved the provider via the **public DHT** and fetched byte-identical content ([R1.1](docs/NEXT_PHASE_PLAN.md)) |
-| Transport ladder survives dead paths | live `acquire_gene` matrix: file → GitHub → IPFS failover; all-blocked → honest `exhausted` ([R1.2](docs/NEXT_PHASE_PLAN.md)) |
-| Signed peer exchange + injection defense | manifest signature vs handshake key → keyring TOFU upgrade → federation `resolved`; untrusted peer → `no_candidate` ([R1.3](docs/NEXT_PHASE_PLAN.md)) |
-| Regression safety | protocol **184 tests** green on Windows **and** CI · registry **50 tests** |
-| Reproducible release | [v2.2.0-Federation-Proof](https://github.com/Audrey-cn/progenitor-protocol/releases/tag/v2.2.0-Federation-Proof) — seed + SHA-256, clean-room install verified |
+| **gene** | a reusable agent skill — one Python file under `genes/`, identity = SHA-256 |
+| **host** | the AI agent running Progenitor — the final decision-maker for all execution |
+| **seed** (`.pgn`) | the engine packaged as one self-extracting file; the host ingests it to install |
+| **Registry** | the public gene pool: hosts genes, auto-validates submissions, maintains the signed index |
+| **Crucible** | the host-side gene auditor: integrity, lineage, code scan, signature |
+| **transport ladder** | a gene's fetch paths, tried in priority order, each payload verified |
+| **trust ring** (keyring) | your list of trusted signing public keys — the root of trust, maintained by you |
 
 ---
 
 ## 📑 Table of Contents
 
 - [⚡ What It Does](#-what-it-does)
-- [🔒 Is It Safe?](#-is-it-safe)
+- [🔒 Is It Safe?](#is-it-safe)
 - [🚀 Quick Start](#-quick-start)
-- [🧬 The Gene Ecosystem](#-the-gene-ecosystem)
+- [🧬 Gene Ecosystem](#-gene-ecosystem)
 - [🧬 Architecture](#-architecture)
 - [🔒 Defense in Depth](#-defense-in-depth)
 - [🍄 Spore Network](#-spore-network)
 - [🔧 Developer Reference](#-developer-reference)
-- [📚 Further Documentation](#-further-documentation)
+- [📚 Documentation](#-documentation)
 - [🤝 Contributing](#-contributing)
 - [📜 Iron Rules](#-iron-rules)
 - [📜 License](#-license)
@@ -120,65 +135,58 @@ Proof over promises — every claim below has a runner you can re-execute.
 
 ## ⚡ What It Does
 
-Progenitor implants a self-bootstrapping engine into any AI coding agent. Once ingested, the agent gains:
+After the host ingests the seed:
 
-| Capability | What You Get | Maturity |
-|------------|--------------|----------|
-| 🧬 **Scoped Execution** (Gene Contract v2) | A gene declares `purity`/`grants`; **pure** genes run under an AST allowlist with no I/O and return an *advisory* result; **effectful** genes need per-capability host grants | ✅ working |
-| 🔐 **Web-of-Trust** | Content-addressed + signed index verified against a local trust **keyring**; per-creator gene signatures upgrade `trust_state`; provenance + reputation surfaced | ✅ working |
-| 🤝 **Voluntary Adoption** | `discover → inspect → host decides → cache` — the engine never auto-infects or auto-runs a fetched gene | ✅ working |
-| 🔍 **Code Audit** | AST dangerous-call denylist + layered audit (integrity · lineage · signature) | ✅ working |
-| 🧠 **Persistent State** | Cross-session state on disk (counters, logs, lineage) — carries context forward | ✅ working |
-| 🌐 **Gene Network** | Discover peers (UDP/LAN) + fetch & SHA-256-verify genes over the multi-path ladder | ✅ working |
-| 🍄 **Spore Propagation** | One consent → opt-in share via file / UDP / IPFS | ✅ working |
-| 📈 **Lifecycle Phases** | Usage-tracked phase labels (mutation→adaptation→evolution) | ⚠️ label-only, no code generation |
-| 🤖 **Absorb-from-knowledge** | Turn raw text/docs into a runnable capability | 🚧 not implemented (needs an LLM bridge) |
+| Capability | What it means | Status |
+|------|------|------|
+| 🧬 **Declarative execution** | genes declare boundaries (`purity`/`grants`); the sandbox enforces them; output is advisory | ✅ |
+| 🔐 **Trust-ring verification** | signed index + per-gene signatures, checked against your trust ring; provenance and reputation visible | ✅ |
+| 🤝 **Voluntary adoption** | discover → inspect → host decides → cache; never auto-installed or auto-run | ✅ |
+| 🔍 **Code audit** | four Crucible layers: integrity · lineage · code scan · signature | ✅ |
+| 🧠 **Persistent state** | cross-session state on disk (counters, logs, lineage) | ✅ |
+| 🌐 **Gene network** | LAN peer discovery + transport-ladder gene fetching | ✅ |
+| 🍄 **Spore propagation** | one consent → opt-in sharing via file / UDP / IPFS | ✅ |
+| 📈 **Lifecycle phases** | usage-driven phase labels | ⚠️ labels only |
+| 🤖 **Absorb-from-knowledge** | turn documents into runnable genes | 🚧 not implemented |
 
-> **Honest maturity note.** The three pillars — scoped execution, web-of-trust, and voluntary
-> adoption — are landed and unit-tested, but new and not yet battle-proven at scale.
-> "Evolution" is a usage-driven phase **label**, not code generation; "memory" is checksummed
-> state persistence — see [docs/GLOSSARY.md](docs/GLOSSARY.md) for metaphor ↔ mechanism.
+> **The one honesty note in this README.** "✅" above means implemented and unit-tested —
+> but the project is young and not battle-proven at scale. "Lifecycle phases" are usage
+> statistics, not code evolution; "memory" is checksummed state persistence, not learning.
+> Every biological term's real mechanism is pinned in [GLOSSARY.md](docs/GLOSSARY.md).
 
 ---
 
 ## 🔒 Is it safe?
 
-Honest answer, not marketing — it asks you to pipe a self-extracting file into `python3`, so
-you deserve the real picture:
+The direct answer:
 
-- **One readable file, Python standard library only.** Audit
-  [`INGEST_ME_TO_EVOLVE_pgn-core.pgn`](INGEST_ME_TO_EVOLVE_pgn-core.pgn) (and the
-  [`hatchery/engine.py`](hatchery/engine.py) source) top to bottom before running — no hidden dependencies.
-- **What it touches:** it writes state under `~/.progenitor/`, and makes **outbound
-  network calls** to fetch genes from GitHub / IPFS gateways. A small **background
-  thread wakes about once an hour** to self-checkpoint ("pulse").
-- **Gene execution is screened, then isolated for stability — not hard-sandboxed.**
-  Incoming genes pass an integrity / lineage / creator-signature check plus an AST
-  dangerous-call denylist (hardened against the common `eval` / `getattr` /
-  `__subclasses__` escape tricks), then run in a **separate process with time limits**
-  (`TelomereGuard`; hard cap on Unix, `sys.monitoring` soft cap on Windows/3.12+).
-  ⚠️ Be clear-eyed: that subprocess still runs with **your** privileges — treat screening
-  as defense-in-depth and **run untrusted genes in a throwaway VM**. OS-level hardening
-  (seccomp/Landlock) is staged in [docs/R4_SANDBOX.md](docs/R4_SANDBOX.md).
-- **Peer-to-peer is opt-in and off by default.** LAN discovery and "spore" sharing
-  require a one-time consent; nothing is broadcast or shared until you grant it.
-- **If you're cautious, run it in a throwaway VM or container** — sound advice for any
-  self-modifying agent tooling.
+- **Everything is auditable.** Read the seed and the engine source line by line — pure
+  standard library, no hidden dependencies, no obfuscation.
+- **What it touches:** writes its own state under `~/.progenitor/`; makes **outbound**
+  requests to GitHub / IPFS gateways; a background thread self-checkpoints hourly.
+- **The truth about gene execution:** genes pass Crucible screening (integrity · lineage ·
+  signature · AST dangerous-call scan), then run in a **separate process with a time
+  limit**. But that process runs with **your** user privileges — screening is defense in
+  depth, not a hard security boundary. Kernel-level hardening is staged in
+  [R4_SANDBOX.md](docs/R4_SANDBOX.md).
+- **Peer networking is off by default** (one-time consent required).
+- **Bottom line:** run untrusted genes inside a disposable VM/container — our advice for
+  any self-modifying agent tooling.
 
 ---
 
 ## 🚀 Quick Start
 
-**Requirements:** Python 3.10+. That's it — no `pip install`, no third-party dependencies.
+**Requirements:** Python 3.10+. Nothing else.
 
-### Option A — release install (recommended)
+### Option A — install the release (recommended)
 
 ```bash
 curl -sL -o pgn-core.pgn https://github.com/Audrey-cn/progenitor-protocol/releases/download/v2.2.0-Federation-Proof/INGEST_ME_TO_EVOLVE_pgn-core.pgn
 python3 pgn-core.pgn
 ```
 
-You should see `🧬 Progenitor activated`. State is written under `~/.progenitor/`.
+You should see `🧬 Progenitor activated`.
 
 ### Option B — track main
 
@@ -186,23 +194,27 @@ You should see `🧬 Progenitor activated`. State is written under `~/.progenito
 curl -sL https://raw.githubusercontent.com/Audrey-cn/progenitor-protocol/main/INGEST_ME_TO_EVOLVE_pgn-core.pgn | python3
 ```
 
-### Option C — inspect first, then run
+### Option C — demo first
 
-Audit the seed, then `python3 pgn-core.pgn`. A reproducible no-network demo:
-`python3 examples/demo.py` — the lysosome gate rejects a hostile gene before it executes.
+```bash
+python3 examples/demo.py
+```
+
+The Crucible blocks hostile code before it executes, with a four-layer self-check.
 
 ---
 
-## 🧬 The Gene Ecosystem
+## 🧬 Gene Ecosystem
 
-The [Registry](https://github.com/Audrey-cn/progenitor-registry) is the public gene pool —
-**open registration, no human approval gate**. A Gatekeeper CI validates every submission:
+The [Registry](https://github.com/Audrey-cn/progenitor-registry) hosts the public gene
+pool — **open registration**. Gatekeeper CI runs seven checks on every submission:
 
 `L0` rate-limit · `L1` lineage · `L2` content-address · `L3` creator · `L4` quality ·
 `L5` security scan · `L6` capability honesty
 
-Currently shipping genes include `code-reviewer`, `json-toolkit`, `log-parser` — and yours
-can be live in minutes: **[CONTRIBUTING.md](https://github.com/Audrey-cn/progenitor-registry/blob/main/CONTRIBUTING.md)**
+Current genes: `code-reviewer`, `json-toolkit`, `log-parser`, and more. Yours can be live
+in minutes — see
+[CONTRIBUTING.md](https://github.com/Audrey-cn/progenitor-registry/blob/main/CONTRIBUTING.md)
 (scaffold → sign → PR, EN/中文).
 
 ---
@@ -223,53 +235,43 @@ flowchart TD
     REG[("Registry · public gene pool")] -. "fetch + verify" .-> GN
 ```
 
-### Hatchery Trinity — For Seed Builders
+### Hatchery Trinity
 
 | File | Role | Description |
 |------|------|-------------|
-| `hatchery/engine.py` | 🧠 RNA Core | The full Progenitor engine — every gene locus, crucible layer, and autonomic pulse lives here |
-| `hatchery/metadata.yaml` | 🛡️ Protein Shell | Configuration DNA: gene locus definitions, security framework, founder inscriptions, and semantic vocabulary |
-| `hatchery/incubator.py` | 🔧 Seed Compiler | Compresses the engine + metadata, wraps them in a bootstrap shell, and crystallizes the final `.pgn` seed |
+| `hatchery/engine.py` | 🧠 engine core | all gene loci, Crucible checks, autonomic pulses |
+| `hatchery/metadata.yaml` | 🛡️ config | gene locus definitions, security framework, vocabulary |
+| `hatchery/incubator.py` | 🔧 compiler | compresses engine + config into the `.pgn` seed |
 
-```bash
-cd hatchery
-# Edit engine.py or metadata.yaml to your liking
-python3 incubator.py    # Outputs: ../INGEST_ME_TO_EVOLVE_pgn-core.pgn
-```
-
-> ⚠️ **The sole deliverable is the `.pgn` file.** The agent consuming the seed never sees the hatchery source — only the self-extracting payload within the `.pgn` vector.
-
----
+> ⚠️ **The seed file is the only deliverable** — the host never needs the hatchery source.
 
 ---
 
 ## 🔒 Defense in Depth
 
-Two distinct layered checks guard the system — one at **runtime** (when an agent ingests a
-gene) and one in **CI** (when a gene is submitted to the registry).
+Two independent check sets — one at **runtime**, one at **submission time**:
 
-**Runtime gene audit** (`engine.crucible_audit` + `Crucible`):
+**Runtime — Crucible audit** (when the host ingests a gene):
 
 | Check | What it does | Default |
 |---|---|---|
-| Integrity | SHA-256 content-address (filename == hash of bytes) | enforced |
-| Lineage | must carry the `PGN@` bloodline prefix | enforced |
-| Creator | open by default; per-creator signatures upgrade `trust_state` | **open** |
-| Code scan | AST dangerous-call denylist (`os.system`/`eval`/`exec`/`subprocess`/… + `getattr`/`__subclasses__`/`__builtins__` escape gadgets) | enforced |
-| Signature | per-creator RSA signatures, self-certifying identity, web-of-trust keyring | optional (strict mode available) |
+| Integrity | filename == content SHA-256 | enforced |
+| Lineage | `life_id` must start with `PGN@` | enforced |
+| Creator | open by default; signatures upgrade `trust_state` | open |
+| Code scan | AST dangerous-call denylist (incl. escape tricks) | enforced |
+| Signature | per-creator RSA signatures vs your trust ring | optional |
 
-Gene **execution** is then refused unless you opt in (`PROGENITOR_ALLOW_GENE_EXEC=1`) — the
-denylist is a pre-filter, not a security boundary (see [Is it safe?](#-is-it-safe)).
+Gene **execution** is denied by default (`PROGENITOR_ALLOW_GENE_EXEC=1` to enable) —
+screening is a pre-filter, not a security boundary (see [Is it safe?](#is-it-safe)).
 
-**Registry Gatekeeper CI** runs an independent check on every submitted gene: L0 rate-limit ·
-L1 lineage · L2 content-address · L3 creator (open) · L4 quality · L5 security scan ·
-L6 capability honesty (a `purity: pure` claim must survive the pure-sandbox).
+**Submission — Gatekeeper CI** (Registry): `L0` rate-limit · `L1` lineage · `L2`
+content-address · `L3` creator · `L4` quality · `L5` security scan · `L6` capability honesty.
 
 ---
 
 ## 🍄 Spore Network
 
-Once the user grants spore consent (one-time), every innovation auto-disseminates:
+After one-time consent, new genes auto-share over the LAN:
 
 ```mermaid
 flowchart LR
@@ -279,64 +281,55 @@ flowchart LR
     A -. "IPFS (if kubo)" .-> IPFS["IPFS network"]
 ```
 
-**No manual uploads. No configuration.** File spores work even without network — same-machine agents auto-detect each other.
+File spores work offline — same-machine agents discover each other automatically.
 
 ---
 
 ## 🔧 Developer Reference
 
 ```bash
-# Download the release seed (see Quick Start) or track main:
-curl -sL https://raw.githubusercontent.com/Audrey-cn/progenitor-protocol/main/INGEST_ME_TO_EVOLVE_pgn-core.pgn -o INGEST_ME_TO_EVOLVE_pgn-core.pgn
-
-# Reproducible demo (no network)
+# reproducible demo (no network)
 python3 examples/demo.py
-
-# Build your own .pgn seed from the hatchery sources
+# build a seed from hatchery sources
 cd hatchery && python3 incubator.py
 ```
 
 ---
 
-## 📚 Further Documentation
+## 📚 Documentation
 
 | Topic | Description |
 |-------|-------------|
-| [Vision](docs/VISION.md) | **The north star** — corrected direction, the three pillars, Gene Contract v2 |
-| [Roadmap](docs/ROADMAP.md) | Honest status (done / partial / not-started) + prioritized next steps |
-| [Next Phase Plan](docs/NEXT_PHASE_PLAN.md) | Governance audit + the R1–R5 restart backlog with evidence |
-| [R4 Sandbox Design](docs/R4_SANDBOX.md) | OS-level hardening — threat model, options, staged plan |
-| [Engineering Review](docs/REVIEW.md) | Evidence-based review — capability maturity, findings, and direction |
-| [Glossary](docs/GLOSSARY.md) | Metaphor ↔ mechanism — what each biological term actually does (honest spec) |
-| [Changelog](CHANGELOG.md) | Version history and release notes |
+| [Vision](docs/VISION.md) | direction + the three pillars |
+| [Roadmap](docs/ROADMAP.md) | honest status + priorities |
+| [Next Phase Plan](docs/NEXT_PHASE_PLAN.md) | restart backlog R1–R5 (with evidence) |
+| [R4 Sandbox Design](docs/R4_SANDBOX.md) | kernel-level hardening: threat model, staged plan |
+| [Engineering Review](docs/REVIEW.md) | evidence-based engineering review |
+| [Glossary](docs/GLOSSARY.md) | metaphor ↔ mechanism table |
+| [Changelog](CHANGELOG.md) | version history |
 
 ---
 
 ## 🤝 Contributing
 
-### Gene authors (the common case)
-See the Registry's [CONTRIBUTING.md](https://github.com/Audrey-cn/progenitor-registry/blob/main/CONTRIBUTING.md) — scaffold → sign → PR in 5 minutes. Open registration, Gatekeeper does the vetting.
+- **Gene authors**: [CONTRIBUTING.md](https://github.com/Audrey-cn/progenitor-registry/blob/main/CONTRIBUTING.md) — scaffold → sign → PR in 5 minutes.
+- **Engine developers**: fork → modify `hatchery/` → `python -m pytest tests/ -q` (185 tests) → rebuild seed → PR.
 
-### Engine developers
-1. Fork, modify `hatchery/`, run `python -m pytest tests/ -q` (184 tests)
-2. Rebuild the seed: `cd hatchery && python3 incubator.py`
-3. PR — CI re-validates tests + seed bootstrap
-
-> ⚠️ All external genes must pass the Crucible (runtime) and the Gatekeeper (registry) before integration.
+> ⚠️ All external genes pass both the Crucible (runtime) and the Gatekeeper (registry).
 
 ---
 
 ## 📜 Iron Rules
 
-1. **Zero Dependencies** — Standard library only
+1. **Zero Dependencies** — Python standard library only
 2. **Bio-Cybernetic Nomenclature** — `phagocytize` not `download`
-3. **Defense in Depth** — Every external byte is hostile
+3. **Defense in Depth** — every external byte is hostile
 
 ---
 
 ## 📜 License
 
-This project is released under the **MIT License**.
+MIT License.
 
 ---
 
