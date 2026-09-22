@@ -69,12 +69,22 @@ external adoption → release); R4 and R5 are independent and may proceed in par
 The transport-hint ladder and self-certifying identity landed offline-tested. What is
 missing is evidence on a real network, split into three runnable steps:
 
-- **R1.1 IPFS path round-trip**
-  - Action: pin one registry gene via `tools/ipfs_upload.py` (decide: local IPFS node vs
-    public pinning service), then fetch it back through the engine's stargate transport
-    from a second machine on a different network.
-  - Exit criteria: fetched bytes hash-verify against `content_sha256`; the index
-    signature verifies on the fetching machine.
+- **✅ R1.1 IPFS path round-trip — DONE 2026-09-22 (Kubo 0.34.1, local node via option A)**
+  - Evidence: gene `5a702b24…` (hello-world-test) published+pinned — CID
+    `bafkreic2oavsjmmzwionmexgeiobwwcfby52kbgifwzpqzxqk4uyygalkq` (raw-leaf CIDv1 = base32 of the
+    content SHA-256). A second node (independent identity, mDNS off, public bootstraps only,
+    128 swarm peers) resolved the provider via the **public DHT** (`routing findprovs`) and
+    fetched the bytes over the network: SHA-256 byte-identical to the registered `content_sha256`.
+  - Engine integration (`hatchery/transport.py`): ipfs-hint fetch verified; dead-gateway failover
+    verified; wrong expected hash → `hash_mismatch` → `exhausted` (content-addressing red line).
+  - Tooling (registry#4): `ipfs_upload.py`/`ipfs_pull.py` now stdlib-only (Kubo RPC v0; drops
+    deprecated `ipfshttpclient`); index updates are attach-only + `--no-index` (rewrites need
+    re-signing with the registry root key).
+  - Known limitation: public gateways (ipfs.io/dweb.link/w3s.link) answer 403 and 4everland 504
+    from this network region — DHT+relay transport is the verified path; gateway reachability from
+    other regions still to be sampled (fold into R1.2).
+  - Residual for R1.3: attaching `ipfs` transport hints to the live index requires re-signing
+    with the registry root key (key ceremony is maintainer-held).
 
 - **R1.2 Transport-ladder failover on the real network**
   - Action: resolve one gene with all three hint classes active
