@@ -175,8 +175,14 @@ def apply_sandbox_hardening(deny: bool = True, variant: str = "full") -> dict:
     unsupported = _unsupported_reason()
     if unsupported:
         return {"applied": False, "reason": unsupported}
-    if os.environ.get("PROGENITOR_SANDBOX_SECCOMP", "").strip().lower() in ("off", "0", "false"):
-        return {"applied": False, "reason": "disabled via PROGENITOR_SANDBOX_SECCOMP"}
+    # Opt-in by default: some CI/runner seccomp/AppArmor profiles reject nested filter
+    # installs (observed EINVAL on GH Actions ubuntu-24.04 with a valid 6-instruction
+    # program via BOTH prctl(22) and seccomp(2)) — verified on real infra via
+    # PROGENITOR_SANDBOX_SECCOMP=on.
+    mode = os.environ.get("PROGENITOR_SANDBOX_SECCOMP", "").strip().lower()
+    if mode in ("off", "0", "false", ""):
+        return {"applied": False,
+                "reason": "opt-in: set PROGENITOR_SANDBOX_SECCOMP=on to enable"}
 
     libc = ctypes.CDLL(None, use_errno=True)
     if not hasattr(libc, "prctl"):
