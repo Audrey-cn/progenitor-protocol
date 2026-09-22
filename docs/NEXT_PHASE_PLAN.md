@@ -167,9 +167,11 @@ Governance to-dos 1–7 above are all closed. The restart order:
    ladder failover, signed peer exchange). Remaining R1-adjacent: cross-machine leg is infra
    (port-forward/tunnel), and index ipfs-hint attachment awaits the key ceremony.
 2. **R2** external contribution — unblocked; onboarding docs have no network dependency.
-3. **R5.5 (new, from external-review simulation)**: spore-consent revocation - consent is
-   currently a one-way flag (`_spore_consent_asked`, zero revoke/withdraw implementations);
-   add revoke + per-destination scoping. See docs/EXTERNAL_REVIEW_SIMULATION.md R5.
+3. ✅ **R5.5 spore-consent revocation — DONE 2026-09-22**: `SporeDaemon.revoke_consent()`
+   stops the UDP beacon, re-closes all channels, and is QUIET (revocation != denial: no
+   reminder nagging); re-grant after revoke verified; revoked daemon refuses
+   `auto_disseminate` (`consent_required`). Wired as `revoke_spore_consent` tool.
+   Per-destination scoping remains open (follow-up).
 3. **R3** tagged release — after R1, so the release ships network-tested claims.
 4. **R4 / R5** — continuous, non-blocking.
 

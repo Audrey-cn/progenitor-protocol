@@ -3665,6 +3665,7 @@ def ingest(filepath):
             spore_daemon = get_spore_daemon()
             tools["spore_daemon"] = spore_daemon
             tools["resolve_spore_consent"] = lambda choice: resolve_spore_consent(progenitor, choice)
+            tools["revoke_spore_consent"] = lambda: spore_daemon.revoke_consent()
         except Exception:
             pass
 
@@ -6183,6 +6184,27 @@ class SporeDaemon:
 
     def defer_consent(self):
         return {"status": "consent_deferred"}
+
+    def revoke_consent(self):
+        """[R5.5] 撤销此前授予的孢子传播授权：停掉 UDP 信标、重新关闭全部通道。
+
+        撤销 ≠ 拒绝：撤销后 _consent_explicitly_denied 保持 False，守护进程不会
+        反复弹提醒骚扰宿主——撤销是安静的，宿主随时可以重新授权。
+        """
+        was_given = bool(self._consent_given)
+        stopped = []
+        beacon = getattr(self, "_beacon", None)
+        if beacon is not None:
+            try:
+                beacon.stop()
+                stopped.append("udp_beacon")
+            except Exception:
+                pass
+        self._consent_given = False
+        self._consent_explicitly_denied = False
+        self._available_channels = []
+        return {"status": "consent_revoked", "was_granted": was_given,
+                "channels_stopped": stopped}
 
     def _detect_channels(self):
         channels = []
