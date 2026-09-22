@@ -122,6 +122,32 @@ def _unsupported_reason() -> str | None:
     return None
 
 
+def diagnose_filter():
+    """Install successive RET-terminated prefixes of the full filter (seccomp filters
+    stack). The first prefix the kernel rejects pinpoints the invalid instruction group.
+    Returns [(prefix_len, result), ...]. FOR DIAGNOSIS ONLY - installed filters persist."""
+    libc = ctypes.CDLL(None, use_errno=True)
+    libc.prctl.argtypes = [ctypes.c_int, ctypes.c_ulong, ctypes.c_ulong,
+                           ctypes.c_ulong, ctypes.c_ulong]
+    libc.prctl.restype = ctypes.c_int
+    prog = _build_filter()
+    results = []
+    for length in range(1, len(prog) + 1):
+        seg = prog[:length]
+        if seg[-1].code & 0x07 != 0x06:  # only RET-terminated prefixes are valid programs
+            continue
+        arr = (_sock_filter * length)(*seg)
+        fprog = _sock_fprog(length, arr)
+        if libc.prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0:
+            results.append((length, f"NNP errno {ctypes.get_errno()}"))
+            continue
+        if libc.prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER,
+                      ctypes.addressof(fprog), 0, 0) != 0:
+            results.append((length, f"EINVAL errno {ctypes.get_errno()}"))
+        else:
+            results.append((length, "ok"))
+
+
 def apply_sandbox_hardening(deny: bool = True, variant: str = "full") -> dict:
     """Install the Stage-1 seccomp denylist in the calling (sandbox) process.
 
