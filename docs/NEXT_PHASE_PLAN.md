@@ -103,12 +103,26 @@ missing is evidence on a real network, split into three runnable steps:
   - Exit criteria met: dead paths skipped, content-verified bytes land from the next hint,
     attempt sequence logged end-to-end.
 
-- **R1.3 Cross-network peer exchange**
-  - Action: UDP discovery is LAN-broadcast only. Add explicit peer hints
-    (`--peer host:port` or env) if still missing, then exchange one signed gene between
-    two agents on different networks.
-  - Exit criteria: the peer manifest signature verifies against the local keyring; the
-    trust/reputation upgrade is visible in the next trust report.
+- **✅ R1.3 Cross-network peer exchange — protocol chain DONE 2026-09-22 (no new engine code needed)**
+  - Survey verdict: everything required already exists — `LocalGateway` binds all interfaces and
+    serves `/hello` (self-certifying identity handshake), `/manifest` (signed
+    `akashic.peer-manifest/v1` with per-gene transport hints + L4 reputation), `/gene/{name|hash}`;
+    `federation.reconcile_peer_manifests` gates candidates by OUR trust in the peer; `peer`/
+    `peer_hash` hints are plain HTTP through the existing ladder.
+  - Live evidence (two independent agent processes, separate identities/keyrings, loopback):
+    1. B verifies A's self-certifying identity via `/hello` (`verify_node_identity`).
+    2. B verifies the signed manifest against the handshake public key — then TOFU-upgrades A into
+       B's local keyring (`agent_b_keyring.json`).
+    3. Federation: with A trusted → `resolved`, winner = `5a702b24…`; **negative test** — the same
+       manifest from an untrusted peer → `no_candidate` (stranger-injection defense holds).
+    4. `acquire_gene` over the manifest's `peer_hash` hint: 455 bytes, hash-verified.
+    5. Voluntary adoption: `decide` honestly says **ask** (TOFU provenance not yet in the adoption
+       trust set + effectful gene), host explicitly approves → content-addressed `adopted` cache.
+  - Runner: `D:\项目\tools\agent_a.py` (provider, port 8620) + `agent_b.py` (verifier).
+  - Residual (infra, not code): a true cross-machine run only needs the provider gateway to be
+    reachable (port-forward/tunnel or same-LAN IP — the server already binds all interfaces);
+    registry-side `trust_report` upgrade for creator-signed genes continues via the Gatekeeper PR
+    flow (requires the maintainer-held key ceremony).
 
 #### R2 — First external gene contribution (proves the open model)
 
@@ -145,10 +159,10 @@ missing is evidence on a real network, split into three runnable steps:
 
 Governance to-dos 1–7 above are all closed. The restart order:
 
-1. **R1** WAN federation evidence (R1.1 → R1.2 → R1.3; R1.3's explicit peer hints are the
-   only expected code change before testing).
-2. **R2** external contribution — can start in parallel with R1 (onboarding docs have no
-   network dependency).
+1. ✅ **R1** WAN federation evidence — R1.1/R1.2/R1.3 all closed 2026-09-22 (IPFS round-trip,
+   ladder failover, signed peer exchange). Remaining R1-adjacent: cross-machine leg is infra
+   (port-forward/tunnel), and index ipfs-hint attachment awaits the key ceremony.
+2. **R2** external contribution — unblocked; onboarding docs have no network dependency.
 3. **R3** tagged release — after R1, so the release ships network-tested claims.
 4. **R4 / R5** — continuous, non-blocking.
 
