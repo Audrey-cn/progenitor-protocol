@@ -63,7 +63,18 @@ BPF_RET_K = 0x06
 BPF_ALU_AND_K = 0x54
 
 
-def _build_filter():
+def _build_filter_minimal():
+    """Diagnostic variant: arch check + unconditional allow. If even this EPERMs
+    everything, the bug is in the encoding/arch handling, not the deny rules."""
+    return [
+        _stmt(BPF_LD_W_ABS, 4),
+        _jump(BPF_JEQ_K, AUDIT_ARCH_X86_64, 0, 1),
+        _stmt(BPF_RET_K, SECCOMP_RET_ALLOW),
+        _stmt(BPF_RET_K, SECCOMP_RET_ERRNO | EPERM),
+    ]
+
+
+def _build_filter(deny=True):
     """x86-64 cBPF program. Indexes matter — the jt/jf arithmetic below depends on them."""
     return [
         _stmt(BPF_LD_W_ABS, 4),                            # 0:  seccomp_data.arch
@@ -101,7 +112,7 @@ def _unsupported_reason() -> str | None:
     return None
 
 
-def apply_sandbox_hardening() -> dict:
+def apply_sandbox_hardening(deny: bool = True) -> dict:
     """Install the Stage-1 seccomp denylist in the calling (sandbox) process.
 
     Never silently skips on a supported host: install errors raise SandboxHardeningError
@@ -123,7 +134,7 @@ def apply_sandbox_hardening() -> dict:
                            ctypes.c_ulong, ctypes.c_ulong]
     libc.prctl.restype = ctypes.c_int
 
-    prog = _build_filter()
+    prog = _build_filter() if deny else _build_filter_minimal()
     arr = (_sock_filter * len(prog))(*prog)
     fprog = _sock_fprog(len(prog), arr)
 
