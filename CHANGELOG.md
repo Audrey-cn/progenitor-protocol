@@ -4,6 +4,41 @@ Release record for Progenitor Protocol. Dates are authoritative. The engine's in
 `protocol_version` (currently **2.6**, in `hatchery/metadata.yaml`) is a separate schema
 number used for gene-compatibility migrations — not a product release version.
 
+**Product version scheme (resolved 2026-09-22):** product releases follow the tag series
+`v2.0.0-Patient-Zero` → `v2.1.0-Symbiotic-Shield` → **`v2.2.0-Federation-Proof`** …; the
+stray "v2.18" claim in the registry README is retired. The schema number (2.6) stays
+internal and unrelated to release tags.
+
+## v2.2.0-Federation-Proof — 2026-09-22
+
+The restart release. Federation evidence chain closed end-to-end; Windows is a first-class
+development platform.
+
+### Windows portability (both repos)
+- `.gitattributes` line-ending governance; content-addressed artifacts (`*.pgn`, `genes/*`,
+  `.akashic_index.json[.sig]`) are byte-exact (`-text`); LF-exact writes everywhere bytes are
+  hashed or signed.
+- Real wall-clock caps off-Unix: `run_pure_gene` / `TelomereGuard` arm a `sys.monitoring`
+  (3.12+) line-event cap; `sys.settrace` stays as legacy fallback; tests skip where no
+  mechanism exists.
+- SECURITY.md corrected (index signing closed F006 on 2026-06-21); NEXT_PHASE_PLAN audited.
+
+### Federation evidence (R1.1–R1.3, all closed with recorded evidence)
+- R1.1 IPFS round-trip: public-DHT provider resolution + network fetch byte-verified
+  (CID `bafkreic2oavsjmmzwionmexgeiobwwcfby52kbgifwzpqzxqk4uyygalkq`).
+- R1.2 Transport-ladder failover: live `acquire_gene` matrix — dead paths skipped, verified
+  bytes land from the next hint, all-blocked exhausts honestly, recovery verified.
+- R1.3 Signed peer exchange: `/hello` self-certifying handshake → signed `/manifest` verified
+  against the handshake key → TOFU keyring upgrade → federation `resolved`; stranger-injection
+  defense (`no_candidate`); `acquire_gene` over `peer_hash` hints; voluntary adoption with
+  explicit host approval.
+- Stdlib-only IPFS tooling (registry#4); rejection analytics in the daily scan (registry#3).
+
+### Stats
+- protocol: 184 tests green (Windows + CI); registry: 50 tests green.
+- Known limitations: public IPFS gateways 403/504 from some network regions (DHT+relay is the
+  verified path); `ipfs` hints in the live index await the registry key ceremony.
+
 ## 2026-06-21 — P0 + P1: index signing & LLM bridge honesty
 
 ### P0: Registry index signing (F006)
