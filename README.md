@@ -146,12 +146,12 @@ After the host ingests the seed:
 | 🧠 **Persistent state** | cross-session state on disk (counters, logs, lineage) | ✅ |
 | 🌐 **Gene network** | LAN peer discovery + transport-ladder gene fetching | ✅ |
 | 🍄 **Spore propagation** | one consent → opt-in sharing via file / UDP / IPFS | ✅ |
-| 📈 **Lifecycle phases** | usage-driven phase labels | ⚠️ labels only |
-| 🤖 **Absorb-from-knowledge** | turn documents into runnable genes | 🚧 not implemented |
+| 📈 **Lifecycle governance** | per-gene usage stats + reputation scoring + lineage versioning; consecutive failures auto-retire a gene and roll back to the last good version | ✅ |
+| 🤖 **Absorb-from-knowledge** | five-phase metabolic pipeline + LLM-bridge extension point: register the reference bridge (`examples/llm_bridge_reference.py`) or wire your own LLM to compile specs/knowledge into runnable genes | ✅ reference bridge ready |
 
 > **The one honesty note in this README.** "✅" above means implemented and unit-tested —
 > but the project is young and not battle-proven at scale. "Lifecycle phases" are usage
-> statistics, not code evolution; "memory" is checksummed state persistence, not learning.
+> statistics + reputation governance — no code self-modification; "memory" is checksummed state persistence, not learning. The absorb-from-knowledge LLM is host-supplied (reference bridge in `examples/`); the engine ships only the pipeline.
 > Every biological term's real mechanism is pinned in [GLOSSARY.md](docs/GLOSSARY.md).
 
 ---
