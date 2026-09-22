@@ -364,7 +364,7 @@ AST 精简后：{len(minified_engine):,} chars (-{int((1 - len(minified_engine)/
     pgn_content += '"""\n'
     pgn_content += get_activation_code()
 
-    OUTPUT_FILE.write_text(pgn_content, encoding="utf-8")
+    OUTPUT_FILE.write_text(pgn_content, encoding="utf-8", newline="")  # byte-exact: the seed is content-addressed
 
     print(f"✅ Progenitor vessel generated: {OUTPUT_FILE}")
     print(f"  - Original: {len(engine_content):,} chars → Minified: {len(minified_engine):,} chars")

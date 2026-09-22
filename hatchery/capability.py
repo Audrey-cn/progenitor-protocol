@@ -21,6 +21,8 @@ import ast
 import importlib
 import re
 import signal
+import sys
+import time
 
 # Compute-only stdlib a pure gene may import — no I/O, no ambient authority.
 # SECURITY: any module that turns a *string* into attribute/field access bypasses the AST
@@ -110,8 +112,9 @@ def run_pure_gene(code, params=None, *, entry="main", timeout_sec=5):
 
     Never performs side effects on the host's behalf — the host agent decides what to do with
     result["result"]. Refuses if the code is not pure-safe. A wall-clock cap (``timeout_sec``)
-    stops runaway loops; it relies on SIGALRM and so only applies on the main thread of a
-    Unix host — elsewhere it degrades gracefully (no timeout). Memory caps still require the
+    stops runaway loops: SIGALRM on the Unix main thread, sys.monitoring line events on
+    Python 3.12+ elsewhere (a soft cap — it fires on the next executed line); without either
+    it degrades gracefully (no timeout). Memory caps still require the
     out-of-process sandbox; the allowlist already denies all I/O and ambient authority.
     """
     ok, reason = check_pure_safe(code)
@@ -122,6 +125,34 @@ def run_pure_gene(code, params=None, *, entry="main", timeout_sec=5):
     def _on_timeout(signum, frame):
         raise _PureTimeout()
 
+    # Cross-platform soft cap (Windows / non-main-thread): sys.monitoring line events
+    # (Python 3.12+). Disarm BEFORE raising so the handler path itself is not re-traced.
+    _MON_TOOL = 4  # free slot (0-2 are debugger/coverage/profile)
+    monitor = {"armed": False, "start": 0.0}
+
+    def _disarm_monitor():
+        if not monitor["armed"]:
+            return
+        m = sys.monitoring
+        try:
+            try:
+                m.register_callback(_MON_TOOL, m.events.LINE, None)
+            except TypeError:  # Python 3.12/3.13 two-arg signature
+                m.register_callback(_MON_TOOL, None)
+        except (RuntimeError, ValueError):
+            pass
+        try:
+            m.set_events(_MON_TOOL, 0)
+            m.free_tool_id(_MON_TOOL)
+        except (RuntimeError, ValueError):
+            pass
+        monitor["armed"] = False
+
+    def _monitor_timeout(code_obj, line_num):
+        if time.time() - monitor["start"] > timeout_sec:
+            _disarm_monitor()
+            raise _PureTimeout()
+
     timer_set = False
     old_handler = None
     try:
@@ -131,7 +162,23 @@ def run_pure_gene(code, params=None, *, entry="main", timeout_sec=5):
                 signal.setitimer(signal.ITIMER_REAL, timeout_sec)
                 timer_set = True
             except (ValueError, OSError):
-                timer_set = False  # not on the main thread → run without the cap
+                timer_set = False  # not on the main thread → fall through to monitoring
+        if not timer_set and timeout_sec and hasattr(sys, "monitoring"):
+            # Mark armed + start the clock BEFORE generating any event: LINE events fire
+            # from set_events() onward, and the arming lines themselves must not trip
+            # the callback (start=0.0 would look like an instant timeout).
+            monitor["armed"] = True
+            monitor["start"] = time.time()
+            try:
+                sys.monitoring.use_tool_id(_MON_TOOL, "progenitor-pure")
+                sys.monitoring.set_events(_MON_TOOL, sys.monitoring.events.LINE)
+                try:
+                    sys.monitoring.register_callback(
+                        _MON_TOOL, sys.monitoring.events.LINE, _monitor_timeout)
+                except TypeError:  # Python 3.12/3.13 two-arg signature
+                    sys.monitoring.register_callback(_MON_TOOL, _monitor_timeout)
+            except (RuntimeError, ValueError):
+                _disarm_monitor()  # tool slot busy → degrade honestly (no cap)
         try:
             exec(compile(code, "<pure-gene>", "exec"), namespace)
             fn = namespace.get(entry)
@@ -147,6 +194,7 @@ def run_pure_gene(code, params=None, *, entry="main", timeout_sec=5):
             signal.setitimer(signal.ITIMER_REAL, 0)
             if old_handler is not None:
                 signal.signal(signal.SIGALRM, old_handler)
+        _disarm_monitor()
 
 
 def parse_capability_manifest(header):
