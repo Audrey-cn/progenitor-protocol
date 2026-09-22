@@ -75,6 +75,33 @@ def _build_filter_minimal():
 
 
 def _build_filter(deny=True, variant="full"):
+    if variant == "diag-arch-match":
+        # EPERM iff arch == x86-64 (else allow) - verifies arch load + compare.
+        return [
+            _stmt(BPF_LD_W_ABS, 4),
+            _jump(BPF_JEQ_K, AUDIT_ARCH_X86_64, 1, 0),
+            _stmt(BPF_RET_K, SECCOMP_RET_ALLOW),
+            _stmt(BPF_RET_K, SECCOMP_RET_ERRNO | EPERM),
+        ]
+    if variant == "diag-openat-any":
+        # EPERM iff nr == openat (else allow) - verifies nr load + per-syscall match.
+        return [
+            _stmt(BPF_LD_W_ABS, 0),
+            _jump(BPF_JEQ_K, SYS_OPENAT, 1, 0),
+            _stmt(BPF_RET_K, SECCOMP_RET_ALLOW),
+            _stmt(BPF_RET_K, SECCOMP_RET_ERRNO | EPERM),
+        ]
+    if variant == "diag-openat-writeflag":
+        # EPERM iff nr == openat AND flags has write bits - verifies the flag load/AND/JEQ chain.
+        return [
+            _stmt(BPF_LD_W_ABS, 0),
+            _jump(BPF_JEQ_K, SYS_OPENAT, 2, 0),
+            _stmt(BPF_LD_W_ABS, 24),
+            _stmt(BPF_ALU_AND_K, O_WRITE_FLAGS),
+            _jump(BPF_JEQ_K, 0, 1, 0),
+            _stmt(BPF_RET_K, SECCOMP_RET_ALLOW),
+            _stmt(BPF_RET_K, SECCOMP_RET_ERRNO | EPERM),
+        ]
     """x86-64 cBPF program. Indexes matter — the jt/jf arithmetic below depends on them."""
     if variant == "socket-only":
         # Diagnostic bisect: deny socket only, no open/openat involvement.
@@ -172,8 +199,8 @@ def apply_sandbox_hardening(deny: bool = True, variant: str = "full") -> dict:
     libc.prctl.restype = ctypes.c_int
 
     prog = _build_filter() if deny else _build_filter_minimal()
-    if variant == "socket-only":
-        prog = _build_filter(variant="socket-only")
+    if variant in ("socket-only", "diag-arch-match", "diag-openat-any", "diag-openat-writeflag"):
+        prog = _build_filter(variant=variant)
     arr = (_sock_filter * len(prog))(*prog)
     fprog = _sock_fprog(len(prog), arr)
 

@@ -1,4 +1,4 @@
-"""R4 Stage 1 - in-CI filter diagnosis: stacked RET-terminated prefixes -> first EINVAL."""
+"""R4 Stage 1 - three diagnostic filter variants, one CI round."""
 import json
 import multiprocessing
 import platform
@@ -9,69 +9,86 @@ import pytest
 
 REPO_DIR = Path(__file__).resolve().parent.parent
 HATCHERY = REPO_DIR / "hatchery"
+LINUX_X64 = sys.platform == "linux" and platform.machine().lower() in ("x86_64", "amd64")
 CTX = multiprocessing.get_context("spawn" if sys.platform == "win32" else "fork")
 
+PROBE_SRC = (
+    "import json, sys\n"
+    "sys.path.insert(0, sys.argv[1])\n"
+    "from sandbox_linux import apply_sandbox_hardening\n"
+    "info = apply_sandbox_hardening(variant=sys.argv[4])\n"
+    "out = {'hardening': {'applied': info.get('applied'), 'variant': info.get('variant', sys.argv[4])}}\n"
+    "try:\n"
+    "    with open(sys.argv[2], 'rb') as f:\n"
+    "        f.read(8)\n"
+    "    out['read'] = 'ok'\n"
+    "except Exception as e:\n"
+    "    out['read'] = type(e).__name__\n"
+    "try:\n"
+    "    f = open(sys.argv[3], 'wb')\n"
+    "    f.write(b'x')\n"
+    "    f.close()\n"
+    "    out['write'] = 'ok'\n"
+    "except Exception as e:\n"
+    "    out['write'] = type(e).__name__\n"
+    "try:\n"
+    "    import socket\n"
+    "    s = socket.socket()\n"
+    "    s.close()\n"
+    "    out['socket'] = 'ok'\n"
+    "except Exception as e:\n"
+    "    out['socket'] = type(e).__name__\n"
+    "print('PROBE:' + json.dumps(out))\n"
+)
 
-def _diag_child(hatchery, q):
+
+def _probe_child(hatchery, read_path, write_path, variant, q):
     import io
     import sys as _sys
     _sys.path.insert(0, hatchery)
     buf = io.StringIO()
     old = _sys.stdout
     _sys.stdout = buf
-    err_repr = None
     try:
-        import sandbox_linux
-        results = sandbox_linux.diagnose_filter()
-        print("DIAG:" + json.dumps(results))
-        info = sandbox_linux.apply_sandbox_hardening()
-        probes = {}
-        with open(REPO_DIR / "README.md", "rb") as f:
-            f.read(8)
-        probes["read"] = "ok"
-        try:
-            f = open("/tmp/progenitor_probe_write", "wb")
-            f.write(b"x")
-            f.close()
-            probes["write"] = "ok"
-        except Exception as e:
-            probes["write"] = type(e).__name__
-        try:
-            import socket
-            s = socket.socket()
-            s.close()
-            probes["socket"] = "ok"
-        except Exception as e:
-            probes["socket"] = type(e).__name__
-        print("POSTDIAG:" + json.dumps({"info": info, "probes": probes}))
-    except Exception as e:
-        err_repr = f"{type(e).__name__}: {e}"
-        print("CHILD-ERROR:" + err_repr)
+        code = PROBE_SRC
+        for pat, val in (("sys.argv[1]", hatchery), ("sys.argv[2]", read_path),
+                         ("sys.argv[3]", write_path), ("sys.argv[4]", variant)):
+            code = code.replace(pat, repr(val))
+        exec(compile(code, "<probe>", "exec"), {"__name__": "__probe__"})
     finally:
         _sys.stdout = old
-    out = buf.getvalue() + (f"\nCHILD-ERROR:{err_repr}" if err_repr else "")
-    for line in out.splitlines():
-        if line.startswith(("DIAG:", "POSTDIAG:", "CHILD-ERROR:")):
+    for line in buf.getvalue().splitlines():
+        if line.startswith("PROBE:"):
             q.put(line)
-    q.put("DONE")
+            return
+    q.put("PROBE-MISSING:" + buf.getvalue()[-200:])
 
 
-def test_diagnose(tmp_path, monkeypatch):
-    if not (sys.platform == "linux" and platform.machine().lower() in ("x86_64", "amd64")):
-        pytest.skip("seccomp targets Linux x86-64")
+@pytest.mark.skipif(not LINUX_X64, reason="seccomp targets Linux x86-64")
+def test_diagnostic_variants(tmp_path, monkeypatch):
     monkeypatch.delenv("PROGENITOR_SANDBOX_SECCOMP", raising=False)
-    q = CTX.Queue()
-    p = CTX.Process(target=_diag_child, args=(str(HATCHERY), q))
-    p.start()
-    p.join(60)
-    collected = []
-    while True:
-        try:
-            collected.append(q.get(timeout=10))
-        except Exception:
-            break
-    report = "\n".join(collected)
-    print(report)
-    assert "DIAG:" in report, f"child produced no diagnosis:\n{report}"
-    assert "CHILD-ERROR" not in report, report
-    assert "POSTDIAG:" in report, report
+    read_path = REPO_DIR / "README.md"
+    write_path = REPO_DIR.parent / "progenitor_escape_probe_should_not_exist"
+    report = {}
+    for variant in ("diag-arch-match", "diag-openat-any", "diag-openat-writeflag"):
+        q = CTX.Queue()
+        p = CTX.Process(target=_probe_child,
+                        args=(str(HATCHERY), str(read_path), str(write_path), variant, q))
+        p.start()
+        p.join(60)
+        assert p.exitcode == 0, f"{variant}: probe crashed exitcode={p.exitcode}"
+        line = q.get(timeout=10)
+        assert line.startswith("PROBE:"), f"{variant}: {line}"
+        report[variant] = json.loads(line[6:])
+    print("DIAG-REPORT:", json.dumps(report, indent=1))
+    # diag-arch-match: x86-64 runner -> arch matches -> read 应被 EPERM
+    assert report["diag-arch-match"]["read"] == "PermissionError", report
+    assert report["diag-arch-match"]["socket"] == "ok", report
+    # diag-openat-any: openat 全拒 -> read/write EPERM, socket ok
+    assert report["diag-openat-any"]["read"] == "PermissionError", report
+    assert report["diag-openat-any"]["write"] == "PermissionError", report
+    assert report["diag-openat-any"]["socket"] == "ok", report
+    # diag-openat-writeflag: 只拒写标志 -> read ok, write EPERM, socket ok
+    assert report["diag-openat-writeflag"]["read"] == "ok", report
+    assert report["diag-openat-writeflag"]["write"] == "PermissionError", report
+    assert report["diag-openat-writeflag"]["socket"] == "ok", report
