@@ -150,12 +150,14 @@ missing is evidence on a real network, split into three runnable steps:
 - Exit criteria: an untrusted effectful gene attempting network/exec/write inside the sandbox
   is blocked by the kernel (EPERM), a benign pure gene is unaffected, both on CI.
 
-#### R5 — LLM bridge reference implementation (optional)
+#### ✅ R5 — LLM bridge reference implementation — DONE 2026-09-22
 
-- Action: wire `Phagocyte.register_llm_bridge` to a host-agent callable as a documented
-  example without adding any engine dependency.
-- Exit criteria: "absorb capability from raw knowledge" goes from honest
-  `not_implemented` to an honest, host-provided reference path in `examples/`.
+- `examples/llm_bridge_reference.py`: spec-mode bridge (JSON gene spec -> gene source,
+  deterministic, offline) + `make_llm_bridge(llm_chat)` wrapper pattern for real hosts.
+- End-to-end tests (`tests/test_llm_bridge_reference.py`): register bridge ->
+  `phagocytize_and_evolve(raw)` -> lysosome pass -> sandbox verify self-check ->
+  crystallization -> `evolution_complete`; repair-loop recovery; dangerous-spec rejection.
+- "Absorb capability from raw knowledge" now has an honest, working reference path.
 
 ## Suggested Execution Order
 
