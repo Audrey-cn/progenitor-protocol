@@ -1,4 +1,4 @@
-"""R4 Stage 1 - in-CI filter diagnosis: stack RET-terminated prefixes, find the first EINVAL."""
+"""R4 Stage 1 - in-CI filter diagnosis: stacked RET-terminated prefixes -> first EINVAL."""
 import json
 import multiprocessing
 import platform
@@ -9,7 +9,6 @@ import pytest
 
 REPO_DIR = Path(__file__).resolve().parent.parent
 HATCHERY = REPO_DIR / "hatchery"
-LINUX_X64 = sys.platform == "linux" and platform.machine().lower() in ("x86_64", "amd64")
 CTX = multiprocessing.get_context("spawn" if sys.platform == "win32" else "fork")
 
 
@@ -20,11 +19,11 @@ def _diag_child(hatchery, q):
     buf = io.StringIO()
     old = _sys.stdout
     _sys.stdout = buf
+    err_repr = None
     try:
         import sandbox_linux
         results = sandbox_linux.diagnose_filter()
         print("DIAG:" + json.dumps(results))
-        # 探针: 全过滤器安装失败后,进程是无过滤的 → 三个探针都应该 ok
         info = sandbox_linux.apply_sandbox_hardening()
         probes = {}
         with open(REPO_DIR / "README.md", "rb") as f:
@@ -45,13 +44,16 @@ def _diag_child(hatchery, q):
         except Exception as e:
             probes["socket"] = type(e).__name__
         print("POSTDIAG:" + json.dumps({"info": info, "probes": probes}))
+    except Exception as e:
+        err_repr = f"{type(e).__name__}: {e}"
+        print("CHILD-ERROR:" + err_repr)
     finally:
         _sys.stdout = old
-        out = buf.getvalue()
-    for marker in ("DIAG:", "POSTDIAG:"):
-        for line in out.splitlines():
-            if line.startswith(marker):
-                q.put(line)
+    out = buf.getvalue() + (f"\nCHILD-ERROR:{err_repr}" if err_repr else "")
+    for line in out.splitlines():
+        if line.startswith(("DIAG:", "POSTDIAG:", "CHILD-ERROR:")):
+            q.put(line)
+    q.put("DONE")
 
 
 def test_diagnose(tmp_path, monkeypatch):
@@ -62,14 +64,14 @@ def test_diagnose(tmp_path, monkeypatch):
     p = CTX.Process(target=_diag_child, args=(str(HATCHERY), q))
     p.start()
     p.join(60)
-    collected = {}
+    collected = []
     while True:
         try:
-            line = q.get(timeout=10)
+            collected.append(q.get(timeout=10))
         except Exception:
             break
-        collected.setdefault(line[:5], line)
-    for k in ("DIAG:", "POSTDIAG:"):
-        v = collected.get(k)
-        print(k, "->", v)
-        assert v is not None, f"missing {k} output"
+    report = "\n".join(collected)
+    print(report)
+    assert "DIAG:" in report, f"child produced no diagnosis:\n{report}"
+    assert "CHILD-ERROR" not in report, report
+    assert "POSTDIAG:" in report, report
