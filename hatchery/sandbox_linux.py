@@ -74,8 +74,18 @@ def _build_filter_minimal():
     ]
 
 
-def _build_filter(deny=True):
+def _build_filter(deny=True, variant="full"):
     """x86-64 cBPF program. Indexes matter — the jt/jf arithmetic below depends on them."""
+    if variant == "socket-only":
+        # Diagnostic bisect: deny socket only, no open/openat involvement.
+        return [
+            _stmt(BPF_LD_W_ABS, 4),
+            _jump(BPF_JEQ_K, AUDIT_ARCH_X86_64, 0, 5),
+            _stmt(BPF_LD_W_ABS, 0),
+            _jump(BPF_JEQ_K, SYS_SOCKET, 2, 0),
+            _stmt(BPF_RET_K, SECCOMP_RET_ALLOW),
+            _stmt(BPF_RET_K, SECCOMP_RET_ERRNO | EPERM),
+        ]
     return [
         _stmt(BPF_LD_W_ABS, 4),                            # 0:  seccomp_data.arch
         _jump(BPF_JEQ_K, AUDIT_ARCH_X86_64, 0, 10),        # 1:  != x86-64 → EPERM-all
@@ -112,7 +122,7 @@ def _unsupported_reason() -> str | None:
     return None
 
 
-def apply_sandbox_hardening(deny: bool = True) -> dict:
+def apply_sandbox_hardening(deny: bool = True, variant: str = "full") -> dict:
     """Install the Stage-1 seccomp denylist in the calling (sandbox) process.
 
     Never silently skips on a supported host: install errors raise SandboxHardeningError
@@ -135,6 +145,8 @@ def apply_sandbox_hardening(deny: bool = True) -> dict:
     libc.prctl.restype = ctypes.c_int
 
     prog = _build_filter() if deny else _build_filter_minimal()
+    if variant == "socket-only":
+        prog = _build_filter(variant="socket-only")
     arr = (_sock_filter * len(prog))(*prog)
     fprog = _sock_fprog(len(prog), arr)
 

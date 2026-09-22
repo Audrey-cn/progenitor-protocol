@@ -1,8 +1,4 @@
-"""R4 Stage 1 - seccomp-BPF hardening probe tests (Linux x86-64, verified on ubuntu CI).
-
-Bisecting probe: each variant runs in its own child process so the kernel filter never
-leaks into pytest. Reports every syscall outcome in the assertion messages.
-"""
+"""R4 Stage 1 - bisecting probe: variants in isolated children, one CI round."""
 import json
 import multiprocessing
 import platform
@@ -20,8 +16,8 @@ PROBE_SRC = (
     "import json, sys\n"
     "sys.path.insert(0, sys.argv[1])\n"
     "from sandbox_linux import apply_sandbox_hardening\n"
-    "deny = sys.argv[4] == '1'\n"
-    "out = {'hardening': apply_sandbox_hardening(deny=deny)}\n"
+    "info = apply_sandbox_hardening(deny=(sys.argv[4] != 'minimal'), variant=sys.argv[4])\n"
+    "out = {'hardening': info}\n"
     "try:\n"
     "    with open(sys.argv[2], 'rb') as f:\n"
     "        f.read(8)\n"
@@ -46,7 +42,7 @@ PROBE_SRC = (
 )
 
 
-def _probe_child(hatchery, read_path, write_path, deny, q):
+def _probe_child(hatchery, read_path, write_path, variant, q):
     import io
     import sys as _sys
     _sys.path.insert(0, hatchery)
@@ -54,10 +50,10 @@ def _probe_child(hatchery, read_path, write_path, deny, q):
     old = _sys.stdout
     _sys.stdout = buf
     try:
-        code = PROBE_SRC.replace("sys.argv[1]", repr(hatchery))
-        code = code.replace("sys.argv[2]", repr(read_path))
-        code = code.replace("sys.argv[3]", repr(write_path))
-        code = code.replace("sys.argv[4]", repr("1" if deny else "0"))
+        code = PROBE_SRC
+        for pat, val in (("sys.argv[1]", hatchery), ("sys.argv[2]", read_path),
+                         ("sys.argv[3]", write_path), ("sys.argv[4]", variant)):
+            code = code.replace(pat, repr(val))
         exec(compile(code, "<probe>", "exec"), {"__name__": "__probe__"})
     finally:
         _sys.stdout = old
@@ -68,13 +64,12 @@ def _probe_child(hatchery, read_path, write_path, deny, q):
     q.put("PROBE-MISSING:" + buf.getvalue()[-300:])
 
 
-def _run_probe(monkeypatch, deny=True, seccomp_env="on"):
-    monkeypatch.setenv("PROGENITOR_SANDBOX_SECCOMP", seccomp_env)
+def _run_variant(variant, seccomp_env):
     read_path = REPO_DIR / "README.md"
     write_path = REPO_DIR.parent / "progenitor_escape_probe_should_not_exist"
     q = CTX.Queue()
     p = CTX.Process(target=_probe_child,
-                    args=(str(HATCHERY), str(read_path), str(write_path), deny, q))
+                    args=(str(HATCHERY), str(read_path), str(write_path), variant, q))
     p.start()
     p.join(60)
     assert p.exitcode == 0, f"probe crashed: exitcode={p.exitcode}"
@@ -84,28 +79,20 @@ def _run_probe(monkeypatch, deny=True, seccomp_env="on"):
 
 
 @pytest.mark.skipif(not LINUX_X64, reason="seccomp targets Linux x86-64")
-def test_no_filter_baseline_clean(tmp_path, monkeypatch):
-    out = _run_probe(monkeypatch, deny=False, seccomp_env="off")
-    assert out == {"hardening": {"applied": False, "reason": "disabled via PROGENITOR_SANDBOX_SECCOMP"},
-                   "read": "ok", "write": "ok", "socket": "ok"}, out
-
-
-@pytest.mark.skipif(not LINUX_X64, reason="seccomp targets Linux x86-64")
-def test_minimal_filter_allows_everything(tmp_path, monkeypatch):
-    """arch-check + unconditional allow: must NOT restrict anything."""
+def test_bisect_all_variants(tmp_path, monkeypatch):
+    report = {}
     monkeypatch.delenv("PROGENITOR_SANDBOX_SECCOMP", raising=False)
-    out = _run_probe(monkeypatch, deny=False)
-    assert out["hardening"]["applied"] is True, out
-    assert out["read"] == "ok", out
-    assert out["write"] == "ok", out
-    assert out["socket"] == "ok", out
-
-
-@pytest.mark.skipif(not LINUX_X64, reason="seccomp targets Linux x86-64")
-def test_full_filter_blocks_write_and_socket_allows_read(tmp_path, monkeypatch):
-    monkeypatch.delenv("PROGENITOR_SANDBOX_SECCOMP", raising=False)
-    out = _run_probe(monkeypatch, deny=True)
-    assert out["hardening"]["applied"] is True, out
-    assert out["read"] == "ok", out
-    assert out["write"] == "PermissionError", out
-    assert out["socket"] == "PermissionError", out
+    for variant in ("minimal", "socket-only", "full"):
+        report[variant] = _run_variant(variant, seccomp_env="on")
+    # 无过滤基线
+    monkeypatch.setenv("PROGENITOR_SANDBOX_SECCOMP", "off")
+    report["none"] = _run_variant("minimal", seccomp_env="off")
+    print("BISECT:", json.dumps(report, indent=1))
+    # 断言(带完整报告,失败时可见全部数据)
+    assert report["none"]["read"] == "ok"
+    assert report["minimal"]["read"] == "ok"
+    assert report["socket-only"]["read"] == "ok", report
+    assert report["socket-only"]["socket"] == "PermissionError"
+    assert report["full"]["read"] == "ok", report
+    assert report["full"]["write"] == "PermissionError"
+    assert report["full"]["socket"] == "PermissionError"
