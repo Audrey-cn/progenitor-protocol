@@ -143,10 +143,12 @@ missing is evidence on a real network, split into three runnable steps:
 
 #### R4 — OS-level sandbox hardening (long-term; pillar B)
 
-- Action: the AST allowlist stays the pre-filter; evaluate seccomp/landlock/namespaces or
-  wasm for effectful genes, out-of-process first (subprocess + resource caps exist).
-- Exit criteria: an untrusted effectful gene runs with no ambient authority under an
-  OS-enforced profile, demonstrated by a test.
+- Plan approved: **[R4_SANDBOX.md](R4_SANDBOX.md)** — threat model + options matrix + staged
+  increments (Stage 1 Linux seccomp denylist in the sandbox preexec, CI-verifiable; Stage 2
+  Landlock FS scoping + Windows Job Objects; Stage 3 namespaces best-effort).
+- Action now: implement Stage 1 (`hatchery/sandbox_linux.py`) with the ubuntu-CI exit test.
+- Exit criteria: an untrusted effectful gene attempting network/exec/write inside the sandbox
+  is blocked by the kernel (EPERM), a benign pure gene is unaffected, both on CI.
 
 #### R5 — LLM bridge reference implementation (optional)
 
