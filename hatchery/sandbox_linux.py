@@ -114,8 +114,14 @@ def apply_sandbox_hardening() -> dict:
         return {"applied": False, "reason": "disabled via PROGENITOR_SANDBOX_SECCOMP"}
 
     libc = ctypes.CDLL(None, use_errno=True)
-    if not hasattr(libc, "prctl") or not hasattr(libc, "syscall"):
-        raise SandboxHardeningError("libc lacks prctl/syscall — cannot install seccomp")
+    if not hasattr(libc, "prctl"):
+        raise SandboxHardeningError("libc lacks prctl — cannot install seccomp")
+    # Explicit argtypes: prctl(2) is variadic, and pointers through an untyped variadic
+    # call are how you get spurious EFAULT (seen on ubuntu CI) — pass the filter as an
+    # explicit word-sized address instead of byref.
+    libc.prctl.argtypes = [ctypes.c_int, ctypes.c_ulong, ctypes.c_ulong,
+                           ctypes.c_ulong, ctypes.c_ulong]
+    libc.prctl.restype = ctypes.c_int
 
     prog = _build_filter()
     arr = (_sock_filter * len(prog))(*prog)
@@ -124,10 +130,10 @@ def apply_sandbox_hardening() -> dict:
     if libc.prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0:
         err = ctypes.get_errno()
         raise SandboxHardeningError(f"PR_SET_NO_NEW_PRIVS failed: errno {err}")
-    ret = libc.syscall(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, ctypes.byref(fprog))
-    if ret != 0:
+    if libc.prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER,
+                  ctypes.addressof(fprog), 0, 0) != 0:
         err = ctypes.get_errno()
-        raise SandboxHardeningError(f"PR_SET_SECCOMP failed: errno {err}")
+        raise SandboxHardeningError(f"PR_SET_SECCOMP failed: errno {err} (fprog@{ctypes.addressof(fprog):#x})")
     return {"applied": True, "method": "seccomp-bpf-denylist",
             "blocked": ["socket", "socketpair", "connect", "execve", "execveat",
                         "open/openat with write flags"]}
