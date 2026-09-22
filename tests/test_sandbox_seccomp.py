@@ -17,7 +17,7 @@ REPO_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_DIR / "hatchery"))
 HATCHERY = REPO_DIR / "hatchery"
 LINUX_X64 = sys.platform == "linux" and platform.machine().lower() in ("x86_64", "amd64")
-CTX = multiprocessing.get_context("spawn" if sys.platform == "win32" else "fork")
+CTX = multiprocessing.get_context("spawn")  # fresh exec: clean glibc init (fork-of-multithreaded-parent made seccomp installs fail flakily)
 
 PROBE_SRC = (
     "import json, sys\n"
