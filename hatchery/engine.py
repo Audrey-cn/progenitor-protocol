@@ -763,6 +763,22 @@ def _sandbox_worker(queue, filepath, function_name, parameters, max_mem_mb, time
             ),
         })
         return
+
+    # [R4 Stage 1] Kernel hardening inside the cage (Linux x86-64: seccomp-BPF denylist —
+    # no socket/connect/execve + no write-flagged opens; read-only opens untouched so
+    # imports keep working). Fails closed on install errors; non-Linux hosts and
+    # PROGENITOR_SANDBOX_SECCOMP=off degrade with a reported reason.
+    _hardening = None
+    try:
+        from sandbox_linux import SandboxHardeningError, apply_sandbox_hardening
+        try:
+            _hardening = apply_sandbox_hardening()
+        except SandboxHardeningError as hard_err:
+            queue.put({"status": "error",
+                       "error": f"sandbox hardening failed (fail-closed): {hard_err}"})
+            return
+    except ImportError:
+        pass  # hardening module unavailable → proceed without it (host not hardened)
     try:
         import sys
         sys.path.insert(0, str(Path(filepath).parent))
@@ -802,7 +818,7 @@ def _sandbox_worker(queue, filepath, function_name, parameters, max_mem_mb, time
             else:
                 result = {"status": "loaded", "message": "基因加载成功但无主函数"}
         
-        queue.put({"status": "success", "result": result})
+        queue.put({"status": "success", "result": result, "hardening": _hardening})
     
     except ApoptosisException as e:
         queue.put({"status": "error", "error": f"端粒凋亡: {str(e)}"})

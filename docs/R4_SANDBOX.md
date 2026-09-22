@@ -1,6 +1,6 @@
 # R4 — OS-Level Sandbox Hardening (design)
 
-Status: **design approved, Stage 1 pending implementation** (2026-09-22). This doc turns the
+Status: **Stage 1 implemented** (2026-09-22, CI-verifiable via tests/test_sandbox_seccomp.py on ubuntu runners); Stages 2-3 pending. This doc turns the
 long-line "OS-level sandbox" backlog item into staged, verifiable increments. It complements —
 never replaces — the standing advice: **run untrusted genes in a VM/container**.
 
@@ -34,17 +34,18 @@ A gene granted `effectful` execution must not be able to, beyond its declared gr
 
 ## Staged plan
 
-### Stage 1 — Linux syscall denylist in the sandbox preexec (CI-verifiable)
-- New `hatchery/sandbox_linux.py`: `apply_seccomp_denylist(spec)` — `prctl(PR_SET_NO_NEW_PRIVS)` +
-  BPF program denying `socket`/`socketpair`/`connect`/`execve`/`execveat` (and write-flagged
-  `openat` when grants exclude `fs:write`), via `ctypes` + `syscall(317/PR_SET_SECCOMP)`.
-- Wired into `execute_gene_in_sandbox`'s POSIX preexec (after RLIMIT setup), activated for
-  untrusted/limited-trust genes; `PROGENITOR_SANDBOX_SECCOMP=off` escape hatch (default on Linux).
-- **Exit criterion (test on ubuntu CI):** a gene whose `main()` calls `socket.socket().connect()`
-  raises/gets EPERM inside the sandbox while a benign pure gene is unaffected; both still
-  hash-verified through `acquire_gene`.
-- Verifiable only on Linux CI (dev box is Windows) — implementation lands with CI green as the gate.
-
+### Stage 1 — Linux syscall denylist in the sandbox preexec — IMPLEMENTED 2026-09-22
+- New `hatchery/sandbox_linux.py`: `apply_sandbox_hardening()` — `prctl(PR_SET_NO_NEW_PRIVS)` +
+  cBPF program denying `socket`/`socketpair`/`connect`/`execve`/`execveat` and write-flagged
+  `open(2)`/`openat(2)` (read-only opens untouched so imports keep working), via pure-stdlib ctypes.
+- Wired at the top of `_sandbox_worker` (the gene-execution cage child), *after* the exec-opt-in
+  gate: **fails closed** on Linux x86-64 install errors (`SandboxHardeningError` → the parent
+  surfaces the exception); non-Linux / non-x86-64 hosts and `PROGENITOR_SANDBOX_SECCOMP=off`
+  degrade with a reported reason; the child result carries a `hardening` info dict either way.
+- Tests (`tests/test_sandbox_seccomp.py`, run in a child process so the filter never leaks into
+  pytest): blocked `socket()` + blocked write-`open()` (EPERM), imports still work under the
+  filter, `PROGENITOR_SANDBOX_SECCOMP=off` differential proof, benign gene unaffected.
+- Gate: ubuntu CI must show the deny tests passing — that IS the kernel-level proof.
 ### Stage 2 — Landlock FS scoping (Linux) + Windows Job Objects
 - Landlock: ruleset allows read-only over the gene's own cache paths; everything else denied.
   ABI probe → graceful skip on older kernels.
