@@ -30,35 +30,35 @@ This plan captures the remaining collection points and turns them into an execut
 
 ## New To-do List
 
-1. Backfill historical gene hash alignment.
-   - Goal: bring all existing `genes/*` filenames in sync with actual SHA-256 content hashes.
-   - Output: migration report + remap plan for impacted capability names/CIDs.
-   - Exit criteria: L2 warnings count reaches zero in scan-only.
+Status audit 2026-09-22 (Windows portability + restart pass):
 
-2. Turn on strict L2 in CI after migration.
-   - Goal: enforce content-address integrity for all new and existing genes.
-   - Action: set `GATEKEEPER_STRICT_L2=1` in `gatekeeper.yml`.
-   - Exit criteria: PR with filename/hash mismatch is blocked.
+1. ✅ Backfill historical gene hash alignment — DONE.
+   The hash deltas observed on Windows were checkout line-ending corruption, not real
+   mismatches; fixed by `.gitattributes` (content-addressed files are `-text`, byte-exact)
+   plus byte-exact LF writes in gatekeeper/tools/tests. `gatekeeper.py --scan-only` is clean
+   under strict L2.
 
-3. Decide strictness policy for L4 quality gate.
-   - Goal: choose between permissive onboarding and quality-first blocking.
-   - Action: run a 2-week shadow period with warning metrics.
-   - Exit criteria: written decision and CI setting (`GATEKEEPER_STRICT_L4`).
+2. ✅ Strict L2 is on — `gatekeeper.py` defaults `GATEKEEPER_STRICT_L2=1`.
 
-4. Integrate rejection log review into daily scan summary.
-   - Goal: make `daily_scan.yml` include latest `.gatekeeper_rejections.jsonl` entries.
-   - Exit criteria: summary shows top rejection reasons by layer.
+3. ✅ L4 strictness policy decided — strict-by-default (`GATEKEEPER_STRICT_L4=1` in code);
+   `daily_scan.yml` keeps a per-run strict override via workflow_dispatch inputs.
 
-5. Add Registry trust-state field in index entries.
-   - Goal: annotate each gene with `trust_state`:
-     - `VERIFIED_REGISTRY`
-     - `QUARANTINED_EXTERNAL`
-     - `REJECTED`
-   - Exit criteria: `.akashic_index.json` schema includes and populates trust state.
+4. 🔶 Rejection log review in daily scan — partially done: `daily_scan.yml` publishes the
+   audit summary and rejection/audit logs as artifacts. Still open: top-rejection-reasons
+   analytics in the step summary.
 
-6. Align README layer naming with executable semantics.
-   - Goal: keep docs and implementation synchronized for L1/L2 wording.
-   - Exit criteria: README + README_CN terminology matches Gatekeeper code paths.
+5. ✅ Trust-state field in index — entries carry `trust_state` (e.g. `registry_verified`);
+   per-creator signing upgrades it via the Gatekeeper trust flow.
+
+6. ✅ README layer naming aligned — README/README_CN now match gatekeeper semantics
+   (L1 lineage verify, L2 content-address check) and document L6 capability honesty.
+
+### Remaining (restart backlog)
+
+- WAN federation live test (IPFS pin/relay + transport-hint ladder on the real network).
+- Windows `<3.12` fallback honesty: `TelomereGuard`/`run_pure_gene` time caps are soft via
+  sys.monitoring (3.12+) and absent before that; tests skip where they would hang.
+- First external gene contribution to prove the open model.
 
 ## Suggested Execution Order
 
