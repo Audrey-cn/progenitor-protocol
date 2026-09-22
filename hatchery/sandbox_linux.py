@@ -146,6 +146,7 @@ def diagnose_filter():
             results.append((length, f"EINVAL errno {ctypes.get_errno()}"))
         else:
             results.append((length, "ok"))
+    return results
 
 
 def apply_sandbox_hardening(deny: bool = True, variant: str = "full") -> dict:
