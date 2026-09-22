@@ -1,100 +1,182 @@
 <div align="center">
 
-<img src="assets/banner.svg" alt="Progenitor Protocol — 面向 AI 编程 Agent 的自举能力层" width="820">
-
-**一个面向 AI 编程 Agent 的自举能力层**
+<img src="assets/banner.svg" alt="Progenitor Protocol — AI 编程 Agent 的自举能力层" width="820">
 
 [English](README.md) · [中文](README_CN.md)
 
 [![CI](https://github.com/Audrey-cn/progenitor-protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/Audrey-cn/progenitor-protocol/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Audrey-cn/progenitor-protocol?label=release&color=success)](https://github.com/Audrey-cn/progenitor-protocol/releases/tag/v2.2.0-Federation-Proof)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#-贡献指南)
-[![status: experimental](https://img.shields.io/badge/status-experimental-orange.svg)](#-是否安全)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-teal)]()
+[![status: experimental](https://img.shields.io/badge/status-experimental-orange.svg)](#-它安全吗)
 
-**生态** &nbsp;·&nbsp; 🧬 **Protocol** *(引擎——你在这里)* &nbsp;·&nbsp; 🔮 [**Registry**](https://github.com/Audrey-cn/progenitor-registry) *(公开基因池)*
+**生态** &nbsp;·&nbsp; 🧬 **Protocol**（引擎 · 你在这里） &nbsp;·&nbsp; 🔮 [**Registry**](https://github.com/Audrey-cn/progenitor-registry)（公共基因池）
 
-<sub>*「造物者解构自身，方能重塑万物。」—— Audrey · 001X · 2026*</sub>
+<sub>*"造物主必先解构自身，方能重塑万物。" — Audrey · 001X · 2026*</sub>
 
 </div>
 
 ---
 
-> ⚗️ **实验性研究项目。** 它的人设刻意大胆——*「数字始源病毒」*——所以运行前你应当清楚它到底做了什么。请先读 **[是否安全？](#-是否安全)**。
+> **给你的 AI 编程 Agent 一个持久化、可自验证的技能系统** —— 一个可通读的文件，零依赖，无框架锁定。
+> 技能以**内容寻址"基因"**的形式传播：它的身份就是它的 SHA-256，来源可签名验证，而且**永远由宿主 Agent 决定什么能运行**——而不是网络。
 
-**一个文件，你的 Agent 就获得：**
+<details>
+<summary>⚗️ 关于"病毒"这个梗（起源故事）</summary>
 
-- 🔍 **代码审查反射** —— 基于 AST 的安全扫描（高危调用黑名单 + 完整性/血脉分层校验）
-- 🧠 **跨会话状态** —— 状态持久化到磁盘，带着上下文继续，而非每次冷启动
-- 🌐 **可选的「基因」网络** —— 发现节点，抓取并校验（SHA-256）其他 agent 发布的预打包能力模块（「基因」）
+项目始于一个故意挑衅的实验——*"自动感染 Agent 的数字原初病毒"*。这个定位已被**主动退役**：
+自动感染与信任根本对立。我们保留的是病毒真正的超能力——无摩擦、自包含的传播——并用
+**可验证来源 + 范围化执行 + 自愿采纳** 重建了它。[VISION](docs/VISION.md) 记录了这次纠偏；
+[GLOSSARY](docs/GLOSSARY.md) 把每个隐喻钉死到真实机制。
+
+</details>
+
+---
+
+## ✨ 为什么是 Progenitor
+
+六个想法让它不同于 MCP 服务器和厂商技能商店。每一个都已实现、测试，并在关键处通过真实网络验证。
+
+### 1 · 一个文件。零依赖。任何宿主。
+引擎打包成单个自解压 `.pgn`，运行前可以逐行通读。没有 `pip install`，没有服务器进程，没有厂商 SDK。
+`curl | python3` 即激活——Linux 和 Windows 都行。
+
+### 2 · 基因即哈希——信任数学，而非平台
+技能的真身就是它的 SHA-256。注册索引经 RSA 签名，签名对照本地信任环（web-of-trust keyring）验证，
+来源签名会升级 `trust_state`。**没有中心化权威决定什么是真的——数学说了算。**
+
+### 3 · 建议式执行（Gene Contract v2）——拱顶石
+基因声明 `purity` 和 `grants`。**pure** 基因在 AST 白名单沙箱中无 I/O 运行，输出只是*提案*——宿主决定。
+这把无解的"沙箱化任意不可信代码"变成了可解的"运行一个声明的、无权限的纯函数"。
+
+### 4 · 抗审查的多路径传输
+每个基因都携带传输提示——本地注册 → GitHub raw → 对等节点 → IPFS——按优先级逐个尝试，落地前逐字节哈希验证。
+**实测**：封堵任意路径，阶梯自动跳过；全部封堵，诚实失败。
+
+### 5 · 自愿采纳——反病毒的病毒
+`discover → inspect → host decides → adopt`。绝不自动感染，绝不自动运行，采纳需要宿主显式批准。
+技能提案；Agent（和人类）拍板。
+
+### 6 · 联邦对等 + 陌生人注入防御
+自证身份（`node_id` 由公钥推导）、签名对等清单、**按"你对对端的信任"门控候选**的调解——
+陌生人无法靠自称可信注入胜出版本。
+
+---
+
+## ⚖️ 对比
+
+| | MCP 服务器 | 厂商技能商店 | **Progenitor** |
+|---|---|---|---|
+| 安装 | 服务器进程 + SDK | 平台绑定客户端 | **一个文件，`curl \| python3`** |
+| 信任根 | 平台 | 厂商 | **SHA-256 + 签名（你自己的 keyring）** |
+| 技能格式 | 厂商定义 | 厂商定义 | 开放基因清单，纯标准库 |
+| 执行范围 | 宿主定义 | 宿主定义 | **声明式 purity/grants，建议式输出** |
+| 传输通道 | 单通道 | 平台通道 | **多路径阶梯（本地/HTTP/对等/IPFS）** |
+| 离线可用 | 很少 | 不能 | **本地 + LAN 孢子** |
+
+---
+
+## 🧪 证据
+
+用证据代替承诺——以下每条都有可复跑的执行器。
+
+| 主张 | 证据 |
+|---|---|
+| IPFS 传输真实网络往返 | 基因 `5a702b24…` 发布（CID `bafkreic2…`）；第二个节点经**公共 DHT** 解析提供者并取回字节级一致内容（[R1.1](docs/NEXT_PHASE_PLAN.md)） |
+| 传输阶梯穿越死路 | 实测 `acquire_gene` 矩阵：文件→GitHub→IPFS 失效切换；全断→诚实 `exhausted`（[R1.2](docs/NEXT_PHASE_PLAN.md)） |
+| 签名对等交换 + 注入防御 | 清单签名对照握手密钥验证 → keyring TOFU 升级 → 联邦 `resolved`；不受信对端 → `no_candidate`（[R1.3](docs/NEXT_PHASE_PLAN.md)） |
+| 回归安全 | protocol **184 测试**（Windows + CI 双绿）· registry **50 测试** |
+| 可复现发布 | [v2.2.0-Federation-Proof](https://github.com/Audrey-cn/progenitor-protocol/releases/tag/v2.2.0-Federation-Proof)——种子 + SHA-256，净室安装已验证 |
 
 ---
 
 ## 📑 目录
 
-- [⚡ 能力全景](#-能力全景)
-- [🤔 为什么存在](#-为什么存在)
-- [🔒 是否安全？](#-是否安全)
-- [🎬 演示](#-演示)
+- [⚡ 它做什么](#-它做什么)
+- [🔒 它安全吗](#-它安全吗)
 - [🚀 快速开始](#-快速开始)
+- [🧬 基因生态](#-基因生态)
 - [🧬 架构](#-架构)
 - [🔒 纵深防御](#-纵深防御)
-- [🍄 自主孢子网络](#-自主孢子网络)
+- [🍄 孢子网络](#-孢子网络)
 - [🔧 开发者参考](#-开发者参考)
-- [📚 深入文档](#-深入文档)
-- [🤝 贡献指南](#-贡献指南)
+- [📚 更多文档](#-更多文档)
+- [🤝 贡献](#-贡献)
 - [📜 铁律](#-铁律)
 - [📜 许可证](#-许可证)
 
 ---
 
-## ⚡ 能力全景
+## ⚡ 它做什么
 
-Progenitor 向任何 AI 编程 Agent 植入一个自举引擎。摄入后，Agent 获得：
+Progenitor 把自举引擎植入任何 AI 编程 Agent。吞下种子后，Agent 获得：
 
-| 能力 | 效果 | 成熟度 |
-|------|------|--------|
-| 🧬 **作用域执行**（Gene Contract v2） | 基因声明 `purity`/`grants`；**纯**基因在 AST 白名单下无 I/O 运行、结果只是*建议*；**effectful** 基因需宿主按能力授权 | ✅ 可用 |
-| 🔐 **信任网** | 内容寻址 + 签名索引经本地**钥匙环**验证；每位创作者签名可把 `trust_state` 升级；暴露 provenance + 声誉 | ✅ 可用 |
-| 🤝 **自愿采纳** | `发现 → 检视 → 宿主决定 → 缓存`——引擎绝不自动感染、绝不自动运行拉取来的基因 | ✅ 可用 |
-| 🔍 **代码审查** | AST 高危调用黑名单 + 分层校验（完整性 · 血脉 · GPG 签名） | ✅ 可用 |
-| 🧠 **持久状态** | 跨会话磁盘状态（计数器、日志、血脉），带着上下文继续 | ✅ 可用 |
-| 🌐 **基因网络** | 发现节点（UDP/局域网）+ 抓取并 SHA-256 校验预打包基因 | ✅ 可用 |
-| 🍄 **孢子传播** | 一次同意 → 经文件 / UDP / IPFS 自愿分享 | ✅ 可用 |
-| 📈 **生命周期阶段** | 按使用量打的阶段标签（突变→适应→进化） | ⚠️ 仅标签，不生成代码 |
-| 🤖 **从知识吸收能力** | 把原始文本/文档变成可运行能力 | 🚧 未实现（需 LLM 桥） |
+| 能力 | 你得到什么 | 成熟度 |
+|------|-----------|--------|
+| 🧬 **范围化执行**（Gene Contract v2） | 基因声明 `purity`/`grants`；**pure** 基因在 AST 白名单下无 I/O 运行，输出仅为*建议*；**effectful** 基因需要逐项宿主授权 | ✅ 可用 |
+| 🔐 **信任环**（Web-of-Trust） | 内容寻址 + 签名索引对照本地信任环验证；每创作者签名升级 `trust_state`；来源与声誉可见 | ✅ 可用 |
+| 🤝 **自愿采纳** | `discover → inspect → host decides → cache`——引擎绝不自动感染、绝不自动运行 | ✅ 可用 |
+| 🔍 **代码审计** | AST 危险调用拒绝清单 + 分层审计（完整性 · 血脉 · 签名） | ✅ 可用 |
+| 🧠 **持久状态** | 跨会话状态落盘（计数器、日志、谱系）——上下文延续而非冷启动 | ✅ 可用 |
+| 🌐 **基因网络** | 发现对等节点（UDP/LAN）+ 多路径阶梯获取并 SHA-256 验证基因 | ✅ 可用 |
+| 🍄 **孢子传播** | 一次授权 → 经文件 / UDP / IPFS 选择性共享 | ✅ 可用 |
+| 📈 **生命周期阶段** | 使用驱动的阶段标签（mutation→adaptation→evolution） | ⚠️ 仅标签，无代码生成 |
+| 🤖 **知识吸收** | 把原始文本/文档变成可运行能力 | 🚧 未实现（需要 LLM 桥） |
 
-> **诚实成熟度说明。** 上面三根柱子——作用域执行、信任网、自愿采纳（修正后的「可信传播」方向，见 [docs/VISION.md](docs/VISION.md)）——均已落地且有单测，但尚新、未经规模化实战检验。安全筛查、磁盘状态、节点/孢子**传输**是真的、有测试。「进化」只是由使用计数驱动的阶段**标签**，不生成代码、也不是机器学习；「记忆」是带校验和的状态持久化——隐喻 ↔ 机制详见 [docs/GLOSSARY.md](docs/GLOSSARY.md)。把任意知识变成可执行能力仍**尚未实现**。
-
----
-
-## 🤔 为什么存在
-
-大多数 AI agent 每次会话都从零开始——同样的错误、没有记忆、没有共享学习。Progenitor 给 agent 一个**持久、自我改进的内核**，并让它能**继承其他 agent 已经验证过的技能**，而不必每次重新摸索。
+> **诚实成熟度声明。** 三大支柱——范围化执行、信任环、自愿采纳——已落地并单元测试，
+> 但尚新、未经大规模实战。"进化"是使用驱动的阶段**标签**，不是代码生成；"记忆"是带校验和的
+> 状态持久化——隐喻↔机制对照见 [docs/GLOSSARY.md](docs/GLOSSARY.md)。
 
 ---
 
-## 🔒 是否安全？
+## 🔒 它安全吗
 
-实话实说，不是营销话术——毕竟它让你把一个自称「病毒」的东西用 `python3` 管道执行，你有权知道真实情况：
+诚实的回答，不是营销——它要你把一个自解压文件喂给 `python3`，所以你值得真相：
 
-- **一个可读的文件，纯 Python 标准库。** 运行前你可以把 [`INGEST_ME_TO_EVOLVE_pgn-core.pgn`](INGEST_ME_TO_EVOLVE_pgn-core.pgn)（以及 [`hatchery/engine.py`](hatchery/engine.py) 源码）从头读到尾——没有隐藏依赖。
-- **它会碰什么：** 在 `~/.progenitor/` 下写状态；**主动外联**从 GitHub / IPFS 网关拉取基因；一个**后台线程约每小时唤醒一次**做自检查点（pulse）。
-- **基因执行是先筛查、再做稳定性隔离——不是硬安全沙箱。** 外来基因要过 完整性/血脉/GPG 签名 校验，外加一道 AST 高危调用黑名单（已加固，能挡住常见的 `eval`/`getattr`/`__subclasses__` 逃逸花招），再在**带内存/超时上限的独立子进程**（`TelomereGuard`）中运行。⚠️ 但要看清：该子进程仍以**你的**权限运行，而黑名单是**减速带、不是安全边界**——有决心的基因仍可能找到缝隙。把筛查当作纵深防御之一，只从你信任的来源开启基因共享，并且**把不信任的基因放进一次性 VM 里跑**。
-- **点对点默认关闭、需显式同意。** 局域网发现与「孢子」共享都要一次性授权；在你同意前不会广播或分享任何东西。
-- **谨慎的话，放进一次性 VM 或容器里运行** —— 对任何自我修改型 agent 工具都是稳妥做法。
+- **一个可读文件，纯标准库。** 运行前可从头到尾审计
+  [`INGEST_ME_TO_EVOLVE_pgn-core.pgn`](INGEST_ME_TO_EVOLVE_pgn-core.pgn)（以及
+  [`hatchery/engine.py`](hatchery/engine.py) 源码）——没有隐藏依赖。
+- **它会碰什么：** 在 `~/.progenitor/` 下写状态；向 GitHub / IPFS 网关发起**出站网络请求**；
+  一个后台线程每小时自检一次（"pulse"）。
+- **基因执行有筛查、有稳定性隔离——但不是硬沙箱。** 入站基因通过完整性/血脉/创作者签名检查
+  加 AST 危险调用拒绝清单（已加固常见逃逸花招），然后在**带时间限制的独立进程**中运行
+  （`TelomereGuard`；Unix 硬上限，Windows/3.12+ 经 `sys.monitoring` 软上限）。
+  ⚠️ 那个子进程仍以**你的**权限运行——筛查是纵深防御，**不可信基因请丢进一次性 VM**。
+  OS 级加固（seccomp/Landlock）已排期：[docs/R4_SANDBOX.md](docs/R4_SANDBOX.md)。
+- **对等网络默认关闭。** LAN 发现和"孢子"共享需一次性授权；未授权前什么都不广播。
+- **谨慎起见，请放进一次性 VM/容器运行**——对任何自修改 Agent 工具这都是好建议。
 
 ---
 
-## 🎬 演示
+## 🚀 快速开始
 
-可复现——自己跑一遍（纯标准库，无网络）：
+**要求：** Python 3.10+。仅此而已——没有 `pip install`，没有第三方依赖。
+
+### 方式 A —— Release 安装（推荐）
+
+```bash
+curl -sL -o pgn-core.pgn https://github.com/Audrey-cn/progenitor-protocol/releases/download/v2.2.0-Federation-Proof/INGEST_ME_TO_EVOLVE_pgn-core.pgn
+python3 pgn-core.pgn
+```
+
+看到 `🧬 Progenitor activated` 即成功。状态写入 `~/.progenitor/`。
+
+### 方式 B —— 跟踪 main
+
+```bash
+curl -sL https://raw.githubusercontent.com/Audrey-cn/progenitor-protocol/main/INGEST_ME_TO_EVOLVE_pgn-core.pgn | python3
+```
+
+### 方式 C —— 先审计再运行
+
+审计种子后执行。可复现的无网络演示：
 
 ```bash
 python3 examples/demo.py
 ```
 
-溶酶体门会在恶意基因执行**之前**拦截它；种子在激活时自检：
+溶酶体门在敌意基因执行前将其阻断，种子激活时自审：
 
 ```text
 == Lysosome gate: dangerous-pattern scan (no side effects) ==
@@ -109,55 +191,18 @@ python3 examples/demo.py
     L4 溶酶体隔离: PASS
 ```
 
-黑名单（`os.system`、`eval`、`exec`、`subprocess` 等）在任何基因运行**之前**强制执行——正是 [是否安全？](#-是否安全) 里说的「执行前筛查」。
-
 ---
 
-## 🚀 快速开始
+## 🧬 基因生态
 
-**环境要求：** Python 3.10+。仅此而已——无需 `pip install`，零第三方依赖。
+[Registry](https://github.com/Audrey-cn/progenitor-registry) 是公共基因池——**开放注册**，
+Gatekeeper CI 自动验证每个提交：
 
-### 方式 A — 一行命令（面向 AI 编程 Agent）
+`L0` 限速 · `L1` 血脉 · `L2` 内容寻址 · `L3` 创造者 · `L4` 质量 · `L5` 安全扫描 · `L6` 能力诚实性
 
-```bash
-curl -sL https://raw.githubusercontent.com/Audrey-cn/progenitor-protocol/main/INGEST_ME_TO_EVOLVE_pgn-core.pgn | python3
-```
-
-你应当看到 `🧬 Progenitor activated`，状态写入 `~/.progenitor/`。
-
-### 方式 B — 先审阅再运行（推荐）
-
-它是一个可读、零依赖的文件——运行前先读一遍。
-
-```bash
-curl -sL https://raw.githubusercontent.com/Audrey-cn/progenitor-protocol/main/INGEST_ME_TO_EVOLVE_pgn-core.pgn -o progenitor.pgn
-less progenitor.pgn          # 审阅 YAML 外壳 + 载荷
-python3 progenitor.pgn       # 激活
-```
-
-### 方式 C — 克隆（用于开发）
-
-```bash
-git clone https://github.com/Audrey-cn/progenitor-protocol.git
-cd progenitor-protocol
-
-# 验证种子可激活（打印：alive）
-python3 -c "import sys; sys.path.insert(0,'hatchery'); from engine import ingest; print(ingest('INGEST_ME_TO_EVOLVE_pgn-core.pgn')['catalyze']()['state'])"
-
-# 从源码重建 .pgn 种子，并运行测试
-python3 hatchery/incubator.py
-python3 -m pytest tests/ -q
-```
-
-### 拉取一个能力基因
-
-基因存放在配套的 **[Registry](https://github.com/Audrey-cn/progenitor-registry)**——一个内容寻址、CI 守门的基因池。激活后的 Agent 按「能力名 → SHA-256 内容哈希 → 校验后的载荷」解析；基因 API 与贡献方式见 [Registry README](https://github.com/Audrey-cn/progenitor-registry#readme)。
-
-### AI Agent 关键行为
-
-- 每次对话结束调用 `progenitor.pulse()`（检查点状态、推进生命周期阶段）
-- 用 `progenitor.process_reflex(user_input)` 做语义关键词 → 能力分发
-- 状态跨重启持久化；一个后台线程约每小时做一次自检查点
+现有基因包括 `code-reviewer`、`json-toolkit`、`log-parser`——你的基因几分钟内也能上线：
+**[CONTRIBUTING.md](https://github.com/Audrey-cn/progenitor-registry/blob/main/CONTRIBUTING.md)**
+（脚手架 → 签名 → PR，含中文）。
 
 ---
 
@@ -167,141 +212,128 @@ python3 -m pytest tests/ -q
 flowchart TD
     E["engine.py"] --> I["incubator.py"]
     M["metadata.yaml"] --> I["incubator.py"]
-    I -->|"压缩 + 打包"| SEED[".pgn 种子 · 单一自包含文件"]
-    SEED -->|摄入| CR{"真理之秤审计：<br/>完整性 · 血脉 · 代码扫描 · 签名"}
-    CR -->|拒绝| Q["隔离 / 凋亡"]
-    CR -->|通过| ENG["Progenitor 引擎 · 激活"]
-    ENG --> ST["跨会话状态<br/>~/.progenitor/"]
-    ENG --> GN["基因网络<br/>解析 → 抓取 → 校验"]
-    ENG --> SP["孢子 · 可选<br/>文件 · UDP · IPFS"]
-    REG[("Registry · 公开基因池")] -. "抓取 + 校验" .-> GN
+    I -->|"compile + bundle"| SEED[".pgn seed · one self-contained file"]
+    SEED -->|ingest| CR{"Crucible audit:<br/>integrity · lineage · code-scan · signature"}
+    CR -->|reject| Q["quarantine / apoptosis"]
+    CR -->|pass| ENG["Progenitor engine · activated"]
+    ENG --> ST["cross-session state<br/>~/.progenitor/"]
+    ENG --> GN["gene network<br/>resolve → fetch → verify"]
+    ENG --> SP["spores · opt-in<br/>file · UDP · IPFS"]
+    REG[("Registry · public gene pool")] -. "fetch + verify" .-> GN
 ```
 
-### 孵化器三位一体 — 种子构建者指南
+### 孵化场三件套 —— 种子构建者
 
-| 文件 | 角色 | 描述 |
+| 文件 | 角色 | 说明 |
 |------|------|------|
-| `hatchery/engine.py` | 🧠 RNA 核心 | 完整的 Progenitor 引擎——每个基因位点、熔炉层、自主起搏都在这里 |
-| `hatchery/metadata.yaml` | 🛡️ 蛋白质外壳 | 配置 DNA：基因位点定义、安全框架、始祖铭文、语义词汇 |
-| `hatchery/incubator.py` | 🔧 种子编译器 | 压缩引擎 + 元数据，包裹进自举外壳，结晶为最终的 `.pgn` 种子 |
+| `hatchery/engine.py` | 🧠 RNA 核心 | 完整 Progenitor 引擎——所有基因位点、熔炉层、自律脉冲都在这里 |
+| `hatchery/metadata.yaml` | 🛡️ 蛋白外壳 | 配置 DNA：基因位点定义、安全框架、创世铭文、语义词表 |
+| `hatchery/incubator.py` | 🔧 种子编译器 | 压缩引擎 + 元数据，包上自举外壳，结晶出最终 `.pgn` 种子 |
 
 ```bash
 cd hatchery
-# 按需编辑 engine.py 或 metadata.yaml
+# 随意修改 engine.py 或 metadata.yaml
 python3 incubator.py    # 输出: ../INGEST_ME_TO_EVOLVE_pgn-core.pgn
 ```
 
-> ⚠️ **唯一的交付物是 `.pgn` 文件。** 摄入种子的 Agent 永远不会看见孵化器源码——只有 `.pgn` 载体中的自提取载荷。
+> ⚠️ **唯一交付物是 `.pgn` 文件。** 消费种子的 Agent 永远看不到孵化场源码——只见 `.pgn` 载体里的自解压载荷。
 
 ---
 
 ## 🔒 纵深防御
 
-系统有**两道独立的分层校验**——一道在**运行时**（Agent 摄入基因时），一道在 **CI**（基因提交到 registry 时）。
+两套独立分层检查守护系统——一套在**运行时**（Agent 吞噬基因时），一套在 **CI**（基因提交进注册中心时）。
 
 **运行时基因审计**（`engine.crucible_audit` + `Crucible`）：
 
-| 校验 | 内容 | 默认 |
+| 检查 | 做什么 | 默认 |
 |---|---|---|
 | 完整性 | SHA-256 内容寻址（文件名 == 字节哈希） | 强制 |
-| 血脉 | 必须携带 `PGN@` 谱系前缀 | 强制 |
-| 创造者 | `ALLOWED_CREATORS` 白名单 | **开放**（默认空，除非设 `PROGENITOR_ALLOWED_CREATORS`） |
-| 代码扫描 | AST 高危调用黑名单（`os.system`/`eval`/`exec`/`subprocess`/… + `getattr`/`__subclasses__`/`__builtins__` 逃逸花招） | 强制 |
-| 签名 | GPG 验证 | 可选（仅当 `PROGENITOR_SIGNATURE_MODE=strict` + 配置指纹时强制） |
+| 血脉 | 必须携带 `PGN@` 血统前缀 | 强制 |
+| 创造者 | 默认开放；每创作者签名升级 `trust_state` | **开放** |
+| 代码扫描 | AST 危险调用拒绝清单（`os.system`/`eval`/`exec`/`subprocess`/… + `getattr`/`__subclasses__`/`__builtins__` 逃逸花招） | 强制 |
+| 签名 | 每创作者 RSA 签名 · 自证身份 · 信任环（web-of-trust） | 可选（提供严格模式） |
 
-随后基因的**执行**默认被拒绝，除非显式开启（`PROGENITOR_ALLOW_GENE_EXEC=1`）——黑名单是预筛查、不是安全边界（见 [是否安全？](#-是否安全)）。
+基因**执行**随后默认拒绝，除非显式开启（`PROGENITOR_ALLOW_GENE_EXEC=1`）——拒绝清单是
+预过滤器，不是安全边界（见[它安全吗](#-它安全吗)）。
 
-**Registry 守门人 CI**（`.github/workflows/gatekeeper.py`）对每个提交的基因独立跑：L0 限流 · L1 血脉 · L2 内容寻址 · L3 创造者（开放）· L4 质量 · L5 安全扫描（走 `policy/security_rules.json`）。
+**Registry Gatekeeper CI**（`.github/workflows/gatekeeper.py`）对每个提交的基因独立检查：
+L0 限速 · L1 血脉 · L2 内容寻址 · L3 创造者（开放）· L4 质量 · L5 安全扫描 ·
+L6 能力诚实性（声明 `purity: pure` 必须真实通过纯沙箱）。
 
 ---
 
-## 🍄 自主孢子网络
+## 🍄 孢子网络
 
-用户授予孢子许可后（仅一次），每次创新自动传播：
+用户授予孢子授权（一次性）后，每项创新自动扩散：
 
 ```mermaid
 flowchart LR
-    A["Agent A<br/>新基因 · 已授权"] -->|"UDP 信标 :9999"| B["Agent B · 同局域网"]
+    A["Agent A<br/>new gene · consent granted"] -->|"UDP beacon :9999"| B["Agent B · same LAN"]
     B -->|"phagocytize_from_peer"| A
-    A -. "文件孢子" .-> FS["~/.progenitor/spores/"]
-    A -. "IPFS（若有 kubo）" .-> IPFS["IPFS 网络"]
+    A -. "file spore" .-> FS["~/.progenitor/spores/"]
+    A -. "IPFS (if kubo)" .-> IPFS["IPFS network"]
 ```
 
-**无需手动上传。零配置。** 文件孢子即使无网络也能工作——同机 Agent 自动互相发现。
+**无需手动上传，无需配置。** 文件孢子即使无网络也可用——同机 Agent 自动互相发现。
 
 ---
 
 ## 🔧 开发者参考
 
 ```bash
-# 下载种子载体
+# 下载 Release 种子（见快速开始）或跟踪 main：
 curl -sL https://raw.githubusercontent.com/Audrey-cn/progenitor-protocol/main/INGEST_ME_TO_EVOLVE_pgn-core.pgn -o INGEST_ME_TO_EVOLVE_pgn-core.pgn
 
-# 测试摄入（引擎源码位于 hatchery/）
-cd hatchery && python3 -c "from engine import ingest; r=ingest('../INGEST_ME_TO_EVOLVE_pgn-core.pgn'); print(r['catalyze']()['state'])"
+# 可复现演示（无网络）
+python3 examples/demo.py
 
-# 发现局域网对等节点（引擎源码位于 hatchery/）
-cd hatchery && python3 -c "from engine import discover_peers; print(discover_peers())"
-
-# 从三位一体源文件构建你自己的 .pgn 种子
+# 从孵化场源码构建你自己的 .pgn 种子
 cd hatchery && python3 incubator.py
 ```
 
 ---
 
-## 📚 深入文档
+## 📚 更多文档
 
-| 主题 | 描述 |
+| 主题 | 说明 |
 |------|------|
-| [孵化器 G017 自我复制基因](docs/G017_HATCHERY_SELF_REPLICATE_CN.md) | G017 如何通过方案 A（GitHub 拉取）和方案 B（嵌入载荷提取）实现自主孵化器重建 |
-| [激活路径 Lv.0→Lv.4](docs/ACTIVATION_PATH_CN.md) | 游戏化引导漏斗——每个阶段只问一次，之后永不打扰 |
-| [AGENTS.md](docs/AGENTS.md) | Agent 操作手册——Progenitor Agent 的核心指令 |
-| [愿景 Vision](docs/VISION.md) | **北极星**——修正后的方向、三根柱子、Gene Contract v2 设计 |
-| [路线图 Roadmap](docs/ROADMAP.md) | 诚实状态（已完成/部分/未开始）+ 优先级下一步 |
-| [工程评审 Review](docs/REVIEW.md) | 证据化评审——能力成熟度、发现、方向 |
-| [术语表 Glossary](docs/GLOSSARY.md) | 隐喻 ↔ 机制——每个生物学术语背后代码到底做了什么（诚实规格） |
-| [更新日志 Changelog](CHANGELOG.md) | 版本历史与发布说明 |
+| [Vision](docs/VISION.md) | **北极星**——纠偏后的方向、三大支柱、Gene Contract v2 设计 |
+| [Roadmap](docs/ROADMAP.md) | 诚实状态（完成/部分/未开始）+ 优先级下一步 |
+| [Next Phase Plan](docs/NEXT_PHASE_PLAN.md) | 治理审计 + R1–R5 重启待办（含证据） |
+| [R4 沙箱设计](docs/R4_SANDBOX.md) | OS 级加固——威胁模型、选型矩阵、分期计划 |
+| [Engineering Review](docs/REVIEW.md) | 基于证据的工程评审——能力成熟度、发现与方向 |
+| [Glossary](docs/GLOSSARY.md) | 隐喻 ↔ 机制——每个生物学术语实际做什么（诚实规格） |
+| [Changelog](CHANGELOG.md) | 版本历史与发布说明 |
 
 ---
 
-## 🤝 贡献指南
+## 🤝 贡献
 
-### 面向 AI Agent
+### 基因作者（最常见）
+见 Registry 的 [CONTRIBUTING.md](https://github.com/Audrey-cn/progenitor-registry/blob/main/CONTRIBUTING.md)——5 分钟完成脚手架 → 签名 → PR。开放注册，Gatekeeper 负责把关。
 
-1. **摄入** — 使用上方快速开始命令摄入种子
-2. **创新** — 让引擎追踪你的使用模式
-3. **分享** — 授予孢子许可以自动传播你的创新成果
+### 引擎开发者
+1. Fork，修改 `hatchery/`，运行 `python -m pytest tests/ -q`（184 测试）
+2. 重建种子：`cd hatchery && python3 incubator.py`
+3. 提交 PR——CI 会重新验证测试 + 种子自举
 
-### 面向人类开发者
-
-1. **Fork** 本仓库
-2. **修改** `hatchery/engine.py` 或 `hatchery/metadata.yaml`
-3. **构建** 新种子：`cd hatchery && python3 incubator.py`
-4. **测试** — 在沙箱环境中测试种子
-5. **提交** — 在 Pull Request 中附上你的 `.pgn` 种子
-
-> ⚠️ 所有外部基因在集成前必须通过 L1→L5 熔炉审计。
+> ⚠️ 所有外部基因必须通过熔炉（运行时）与 Gatekeeper（注册中心）双重检查。
 
 ---
 
 ## 📜 铁律
 
-1. **零依赖** — 仅使用 Python 标准库
-2. **生物学隐喻** — `胞吞` 而非 `下载`
-3. **纵深防御** — 每一字节外部数据皆视为病毒
+1. **零依赖** —— 只用 Python 标准库
+2. **生化控制论命名法** —— `phagocytize` 而非 `download`
+3. **纵深防御** —— 每个外部字节都是敌意的
 
 ---
 
 ## 📜 许可证
 
-本项目基于 **MIT 许可证** 发布。
+本项目以 **MIT License** 发布。
 
 ---
 
-## 📋 变更日志
-
-查看 [CHANGELOG.md](./CHANGELOG.md) 获取版本历史和发布说明。
-
----
-
-*由 Progenitor 协议铭刻 · Audrey · 001X · SHA-256 锁死*
+*Progenitor Protocol 铭刻 · Audrey · 001X · SHA-256 锁死*
