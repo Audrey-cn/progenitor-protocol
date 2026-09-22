@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import ctypes
 import os
+import struct
 import platform
 import sys
 
@@ -198,7 +199,16 @@ def apply_sandbox_hardening(deny: bool = True, variant: str = "full") -> dict:
         raise SandboxHardeningError(f"PR_SET_NO_NEW_PRIVS failed: errno {err}")
     if libc.prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER,
                   ctypes.addressof(fprog), 0, 0) != 0:
-        err = ctypes.get_errno()
-        raise SandboxHardeningError(f"PR_SET_SECCOMP failed: errno {err} (fprog@{ctypes.addressof(fprog):#x})")
+        # prctl path failed - retry via the seccomp(2) syscall (317 on x86-64), and dump
+        # the program bytes so a verifier rejection can be reviewed byte-level.
+        raw = b"".join(struct.pack("<HBBI", i.code, i.jt, i.jf, i.k) for i in prog)
+        err1 = ctypes.get_errno()
+        SYS_SECCOMP = 317
+        libc.syscall.restype = ctypes.c_long
+        if libc.syscall(SYS_SECCOMP, SECCOMP_MODE_FILTER, ctypes.addressof(fprog)) != 0:
+            err2 = ctypes.get_errno()
+            raise SandboxHardeningError(
+                f"PR_SET_SECCOMP failed: prctl errno {err1}, retry errno {err2}, "
+                f"hex={raw.hex()}, len={len(prog)}")
     return {"applied": True, "method": "seccomp-bpf-denylist",
             "blocked": ["socket", "socketpair", "connect", "execve", "execveat"]}
