@@ -1,3 +1,5 @@
+> **⚠️ 已停更（2026-09-23）** — 本仓库不再维护，仅作参考与经验留档。原因与后续安排见 [ARCHIVED.md](ARCHIVED.md)。
+
 <div align="center">
 
 <img src="assets/banner.svg" alt="Progenitor Protocol — a self-bootstrapping capability layer for AI coding agents" width="820">
